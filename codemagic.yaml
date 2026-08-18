@@ -1,35 +1,14 @@
 workflows:
-  android-workflow:
-    name: DAVE AI Android Build
-    max_build_duration: 30
+  dave-android-build:
+    name: DAVE Android Build
+    max_build_duration: 60
     environment:
       flutter: stable
     scripts:
-      - name: Organize project files into Flutter structure
-        script: |
-          mkdir -p lib/models manifest_src
-          mv -f main.dart dave_service.dart splash_screen.dart home_shell.dart \
-                chat_page.dart voice_page.dart memory_page.dart settings_page.dart \
-                lib/ 2>/dev/null || true
-          mv -f dave_models.dart lib/models/ 2>/dev/null || true
-          mv -f AndroidManifest.xml manifest_src/ 2>/dev/null || true
       - name: Generate Flutter platform scaffold
         script: |
           flutter create --platforms=android --org com.dave.ai --project-name dave_ai .
-      - name: Apply custom AndroidManifest permissions
-        script: |
-          if [ -f manifest_src/AndroidManifest.xml ]; then
-            cp manifest_src/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
-          fi
-      - name: Set package name, minSdk, targetSdk, desugaring
-        script: |
-          sed -i 's/applicationId = "com.example.dave_ai"/applicationId "com.dave.ai.jarvis"/' android/app/build.gradle || true
-          sed -i 's/applicationId "com.example.dave_ai"/applicationId "com.dave.ai.jarvis"/' android/app/build.gradle || true
-          sed -i 's/minSdkVersion flutter.minSdkVersion/minSdkVersion 23/' android/app/build.gradle || true
-          sed -i 's/minSdk = flutter.minSdkVersion/minSdk = 23/' android/app/build.gradle || true
-          sed -i 's/targetSdkVersion flutter.targetSdkVersion/targetSdkVersion 34/' android/app/build.gradle || true
-          sed -i 's/targetSdk = flutter.targetSdkVersion/targetSdk = 34/' android/app/build.gradle || true
-      - name: Get Flutter packages
+      - name: Install dependencies
         script: |
           flutter pub get
       - name: Build APK
