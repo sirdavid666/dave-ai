@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
+import 'package:workmanager/workmanager.dart'; // REPLACED android_alarm_manager_plus
 import 'package:permission_handler/permission_handler.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:battery_plus/battery_plus.dart';
@@ -10,19 +10,25 @@ import 'dave_service.dart';
 import 'splash_screen.dart';
 
 // ---------------------------------------------------------------------
-// IMPORTANT NOTE ON BACKGROUND BRIEFINGS:
-// android_alarm_manager_plus fires this callback in a separate background
-// isolate where the app UI isn't running. Speaking reliably via flutter_tts
-// from a background isolate is not dependable on modern Android (OEM
-// battery restrictions frequently kill it). So this callback instead posts
-// a local NOTIFICATION with the full briefing text — it always works,
-// even with the app closed. If DAVE AI is open in the foreground when
-// 7:00 AM / 10:00 PM hits, the Voice tab additionally SPEAKS the briefing
-// out loud (see home_shell.dart timer check). This is the reliable
-// real-world version of "proactive Jarvis mode" on Android.
+// WORKMANAGER TASK NAMES
 // ---------------------------------------------------------------------
+const String morningTask = "morningBriefingTask";
+const String nightTask = "nightBriefingTask";
+
+// THIS RUNS IN BACKGROUND AT 7:00 AM
 @pragma('vm:entry-point')
-Future<void> morningBriefingCallback() async {
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    if (task == morningTask) {
+      await _morningBriefingTask();
+    } else if (task == nightTask) {
+      await _nightBriefingTask();
+    }
+    return Future.value(true);
+  });
+}
+
+Future<void> _morningBriefingTask() async {
   await Hive.initFlutter();
   final userDataBox = await Hive.openBox('user_data');
   final tasksBox = await Hive.openBox('tasks');
@@ -57,8 +63,8 @@ Future<void> morningBriefingCallback() async {
   );
 }
 
-@pragma('vm:entry-point')
-Future<void> nightBriefingCallback() async {
+// THIS RUNS IN BACKGROUND AT 10:00 PM
+Future<void> _nightBriefingTask() async {
   await Hive.initFlutter();
   final userDataBox = await Hive.openBox('user_data');
   final tasksBox = await Hive.openBox('tasks');
@@ -101,34 +107,39 @@ Future<void> nightBriefingCallback() async {
 
 Future<void> _scheduleDailyBriefings() async {
   // 7:00 AM daily
-  await AndroidAlarmManager.periodic(
-    const Duration(hours: 24),
-    1001,
-    morningBriefingCallback,
-    startAt: _nextInstanceOfTime(7, 0),
-    exact: true,
-    wakeup: true,
-    rescheduleOnReboot: true,
+  await Workmanager().registerPeriodicTask(
+    "1",
+    morningTask,
+    frequency: const Duration(hours: 24),
+    initialDelay: _getInitialDelay(7, 0),
+    constraints: Constraints(
+      networkType: NetworkType.notRequired,
+      requiresBatteryNotLow: false,
+      requiresCharging: false,
+    ),
   );
-  // 10:00 PM daily
-  await AndroidAlarmManager.periodic(
-    const Duration(hours: 24),
-    1002,
-    nightBriefingCallback,
-    startAt: _nextInstanceOfTime(22, 0),
-    exact: true,
-    wakeup: true,
-    rescheduleOnReboot: true,
+  
+  // 10:00 PM daily  
+  await Workmanager().registerPeriodicTask(
+    "2",
+    nightTask,
+    frequency: const Duration(hours: 24),
+    initialDelay: _getInitialDelay(22, 0),
+    constraints: Constraints(
+      networkType: NetworkType.notRequired,
+      requiresBatteryNotLow: false,
+      requiresCharging: false,
+    ),
   );
 }
 
-DateTime _nextInstanceOfTime(int hour, int minute) {
+Duration _getInitialDelay(int hour, int minute) {
   final now = DateTime.now();
   var scheduled = DateTime(now.year, now.month, now.day, hour, minute);
   if (scheduled.isBefore(now)) {
     scheduled = scheduled.add(const Duration(days: 1));
   }
-  return scheduled;
+  return scheduled.difference(now);
 }
 
 void main() async {
@@ -137,8 +148,8 @@ void main() async {
   // Core data + services must be ready before the UI touches them.
   await DaveService.instance.init();
 
-  // Background alarm manager for proactive morning/night briefings.
-  await AndroidAlarmManager.initialize();
+  // BACKGROUND WORKMANAGER FOR PROACTIVE MORNING/NIGHT BRIEFINGS
+  await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
   await _scheduleDailyBriefings();
 
   // Ask for the permissions Dave actually needs, up front.
