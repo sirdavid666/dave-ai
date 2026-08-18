@@ -97,11 +97,11 @@ class DaveService {
     }
 
     if (input.contains("time")) {
-      return withCatchPhrase("It's ${DateFormat('h:mm a').format(DateTime.now())}, Boss.");
+      return withCatchphrase("It's ${DateFormat('h:mm a').format(DateTime.now())}, Boss.");
     }
 
     if (input.contains("date") || input.contains("today")) {
-      return withCatchPhrase("Today is ${DateFormat('EEEE, MMM d, y').format(DateTime.now())}.");
+      return withCatchphrase("Today is ${DateFormat('EEEE, MMM d, y').format(DateTime.now())}.");
     }
 
     if (input.contains("battery")) {
