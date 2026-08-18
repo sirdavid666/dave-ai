@@ -10,7 +10,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  android_alarm_manager_plus: ^5.0.0
+  workmanager: ^0.5.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
   battery_plus: ^5.0.1
@@ -19,7 +19,8 @@ dependencies:
   permission_handler: ^11.3.1
   flutter_local_notifications: ^18.0.1
   intl: ^0.19.0
-  timezone: ^0.10.1  
+  timezone: ^0.10.1
+  http: ^1.2.2 # for weather later
 
 dev_dependencies:
   flutter_test:
