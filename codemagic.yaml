@@ -1,0 +1,14 @@
+workflows:
+  release:
+    name: Android Release
+    instance_type: mac_mini_m1
+    max_build_duration: 60
+    environment:
+      groups:
+        - google_play # if you add later
+    scripts:
+      - name: Build APK
+        script: |
+          ./gradlew :app:assembleRelease
+    artifacts:
+      - app/build/outputs/apk/release/*.apk
