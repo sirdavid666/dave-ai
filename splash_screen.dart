@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_particles/flutter_particles.dart';
+import 'package:particles_flutter/particles_flutter.dart';
 import 'dart:async';
 import 'home_screen.dart';
 import 'dave_service.dart';
@@ -14,7 +14,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    DaveService().scheduleBriefings();
+    DaveService.instance.scheduleBriefings();
     Timer(const Duration(seconds: 3), () {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
     });
@@ -27,15 +27,16 @@ class _SplashScreenState extends State<SplashScreen> {
       body: Stack(
         alignment: Alignment.center,
         children: [
-          ParticlesWidget(
+          CircularParticle(
             key: UniqueKey(),
-            particlesCount: 60,
+            awayRadius: 80,
+            numberOfParticles: 100,
+            speedOfParticles: 1,
+            height: MediaQuery.of(context).size.height,
+            width: MediaQuery.of(context).size.width,
+            onTapAnimation: true,
             particleColor: const Color(0xFF4A90E2).withOpacity(0.8),
-            particleRadius: 1.5,
-            speed: 0.8,
-            isRandSize: true,
-            isRandSpeed: true,
-            onParticleTap: (particle) {},
+            connectDots: true,
           ),
           const Column(
             mainAxisAlignment: MainAxisAlignment.center,
