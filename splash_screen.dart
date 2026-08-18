@@ -22,7 +22,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     _glowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
     Timer(const Duration(seconds: 3), () {
-      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
+    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen()));
     });
   }
 
