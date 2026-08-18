@@ -14,9 +14,10 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late Animation<double> _glowAnimation;
 
   @override
-  void initState() {
+  void initState() async { 
     super.initState();
-    DaveService.instance.scheduleBriefings();
+  await DaveService.instance.init();
+DaveService.instance.scheduleBriefings();
     
     _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
     _glowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
