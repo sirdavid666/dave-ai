@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:particles_flutter/particles_flutter.dart';
 import 'dart:async';
 import 'home_screen.dart';
 import 'dave_service.dart';
@@ -10,44 +9,81 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _glowAnimation;
+
   @override
   void initState() {
     super.initState();
     DaveService.instance.scheduleBriefings();
+    
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
+    _glowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
     Timer(const Duration(seconds: 3), () {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const HomeScreen()));
     });
   }
 
   @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF0A0A0F),
-      body: Stack(
-        alignment: Alignment.center,
-        children: [
-          CircularParticle(
-            key: UniqueKey(),
-            awayRadius: 80,
-            numberOfParticles: 100,
-            speedOfParticles: 1,
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            onTapAnimation: true,
-            particleColor: const Color(0xFF4A90E2).withOpacity(0.8),
-            connectDots: true,
-          ),
-          const Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.auto_awesome, size: 90, color: Color(0xFFFFD700)),
-              SizedBox(height: 20),
-              Text('DAVE AI', style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Color(0xFF4A90E2), letterSpacing: 2)),
-              Text('Your Personal Jarvis', style: TextStyle(color: Colors.white70, fontSize: 16)),
-            ],
-          ),
-        ],
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // SCI-FI GLOWING ICON
+            AnimatedBuilder(
+              animation: _glowAnimation,
+              builder: (context, child) {
+                return Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF4A90E2).withOpacity(_glowAnimation.value),
+                        blurRadius: 40 * _glowAnimation.value,
+                        spreadRadius: 10 * _glowAnimation.value,
+                      ),
+                    ],
+                  ),
+                  child: const Icon(Icons.auto_awesome, size: 100, color: Color(0xFF4A90E2)),
+                );
+              },
+            ),
+            const SizedBox(height: 30),
+            // SCI-FI TEXT WITH SCAN LINE
+            ShaderMask(
+              shaderCallback: (bounds) => LinearGradient(
+                colors: [const Color(0xFF4A90E2), const Color(0xFFFFD700), const Color(0xFF4A90E2)],
+                stops: const [0.0, 0.5, 1.0],
+              ).createShader(bounds),
+              child: const Text(
+                'DAVE AI',
+                style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white, letterSpacing: 4),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text('INITIALIZING SYSTEMS...', style: TextStyle(color: Color(0xFF4A90E2), fontSize: 14, letterSpacing: 2)),
+            const SizedBox(height: 20),
+            // LOADING BAR
+            SizedBox(
+              width: 200,
+              child: LinearProgressIndicator(
+                backgroundColor: const Color(0xFF1A1A2E),
+                valueColor: AlwaysStoppedAnimation<Color>(const Color(0xFFFFD700)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
