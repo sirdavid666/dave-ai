@@ -16,21 +16,15 @@ jobs:
       
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
+          flutter-version: '3.22.3'  # <- DOWNGRADED FROM 3.24.5
           channel: 'stable'
           cache: true
       
-      - name: Flutter Doctor
-        run: flutter doctor -v
+      - run: flutter doctor -v
+      - run: flutter pub get
+      - run: flutter build apk --release
       
-      - name: Get Dependencies
-        run: flutter pub get
-      
-      - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons
-      
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: dave-ai-apk
           path: build/app/outputs/flutter-apk/app-release.apk
