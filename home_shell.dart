@@ -76,7 +76,7 @@ class _HomeShellState extends State<HomeShell> {
     }
 
     // 4-hour idle nudge.
-    if (svc.idleFourHours) {
+    if (svc.isAfterFourHours) {
       svc.speak("Boss you good? Need motivation?");
       svc.recordActivity(); // avoid repeating every minute
     }

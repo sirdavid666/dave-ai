@@ -4,7 +4,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:hive/hive.dart';
 import 'package:intl/intl.dart';
-import 'package:intl/date_symbol_data_local.dart'; 
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -64,7 +63,7 @@ class DaveService {
     await tts.setLanguage("en-US");
     await tts.setSpeechRate(0.48);
     await tts.setPitch(1.0);
-    _recordActivity();
+    recordActivity();
   }
 
   Future<void> speak(String text) async {
@@ -72,7 +71,7 @@ class DaveService {
     await tts.speak(text);
   }
 
-  void _recordActivity() {
+  void recordActivity() {
     settingsBox.put('last_activity', DateTime.now().toIso8601String());
   }
 
@@ -84,7 +83,7 @@ class DaveService {
   }
 
   String getResponse(String rawInput) {
-    _recordActivity();
+    recordActivity();
     final input = rawInput.toLowerCase().trim();
     if (input.isEmpty) return "I didn't catch that, Boss. Say again?";
 
@@ -178,6 +177,8 @@ class DaveService {
   Map<String, dynamic> get memoryFacts => Map<String, dynamic>.from(userDataBox.toMap());
   void addMemoryFact(String key, String value) => userDataBox.put(key, value);
   void deleteMemoryFact(String key) => userDataBox.delete(key);
+
+  Future<int> currentBatteryLevel() async => await battery.batteryLevel;
 
   Future<String> buildMorningBriefing() async {
     final level = await battery.batteryLevel;

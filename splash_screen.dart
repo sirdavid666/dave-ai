@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'home_screen.dart';
+import 'home_shell.dart';
 import 'dave_service.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -14,17 +14,21 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   late Animation<double> _glowAnimation;
 
   @override
-  void initState() async { 
+  void initState() {
     super.initState();
-  await DaveService.instance.init();
-DaveService.instance.scheduleBriefings();
-    
     _controller = AnimationController(vsync: this, duration: const Duration(seconds: 2))..repeat(reverse: true);
     _glowAnimation = Tween<double>(begin: 0.4, end: 1.0).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
 
+    _initServices();
+
     Timer(const Duration(seconds: 3), () {
-    Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeScreen()));
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => HomeShell()));
     });
+  }
+
+  Future<void> _initServices() async {
+    await DaveService.instance.init();
+    await DaveService.instance.scheduleBriefings();
   }
 
   @override
