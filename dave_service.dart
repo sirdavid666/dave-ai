@@ -273,5 +273,11 @@ class DaveService {
         "Today we completed $tasksDoneCount/$tasksTodayCount tasks. Not bad. "
         "Battery at $level%. Charge your phone. Proud of you for not breaking your prayer streak. "
         "Rest now. Tomorrow we attack again.";
+      // Schedule morning and evening briefings
+  Future<void> scheduleBriefings() async {
+    // This is a placeholder for now so the app builds
+    // We will add real notifications later after the APK works
+    print("DAVE: Briefings scheduled - placeholder");
+  }
   }
 }
