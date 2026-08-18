@@ -1,4 +1,4 @@
-    package com.sirdavid666.dave_ai
+        package com.dave.ai.jarvis
 
     import io.flutter.embedding.android.FlutterActivity
 
