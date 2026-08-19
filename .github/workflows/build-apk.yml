@@ -3,6 +3,7 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -26,37 +27,37 @@ jobs:
       run: |
         if [ ! -f android/build.gradle ] && [ ! -f android/build.gradle.kts ]; then
           cat > android/build.gradle << 'EOF'
-buildscript {
-    ext.kotlin_version = '1.9.22'
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.3.0'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
-}
+        buildscript {
+            ext.kotlin_version = '1.9.22'
+            repositories {
+                google()
+                mavenCentral()
+            }
+            dependencies {
+                classpath 'com.android.tools.build:gradle:8.3.0'
+                classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+            }
+        }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
+        allprojects {
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
 
-rootProject.buildDir = "../build"
-subprojects {
-    project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-subprojects {
-    project.evaluationDependsOn(":app")
-}
+        rootProject.buildDir = "../build"
+        subprojects {
+            project.buildDir = "${rootProject.buildDir}/${project.name}"
+        }
+        subprojects {
+            project.evaluationDependsOn(":app")
+        }
 
-tasks.register("clean", Delete) {
-    delete rootProject.buildDir
-}
-EOF
+        tasks.register("clean", Delete) {
+            delete rootProject.buildDir
+        }
+        EOF
           echo "Created missing android/build.gradle"
         fi
 
