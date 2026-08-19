@@ -38,7 +38,7 @@ class DaveService {
 
   bool get catchPhrasesOn => settingsBox.get('catchPhrases_on', defaultValue: true) as bool;
   
-  String withCatchPhrase(String base, [List<String> bank = starting]) {
+  String withCatchphrase(String base, [List<String> bank = starting]) {
     if (!catchPhrasesOn) return base;
     return "${pick(bank)} $base";
   }
@@ -148,7 +148,7 @@ class DaveService {
     _scheduleTaskNotification(task);
 
     final timeStr = DateFormat('h:mm a').format(due);
-    return withCatchPhrase("I'll remind you to $taskTitle at $timeStr.");
+    return withCatchphrase("I'll remind you to $taskTitle at $timeStr.");
   }
 
   Future<void> _scheduleTaskNotification(DaveTask task) async {
