@@ -26,16 +26,18 @@ jobs:
         channel: 'stable'
         cache: false
 
-    - name: Nuclear Clean
+    - name: DELETE EVERYTHING
       run: |
         flutter clean
         rm -rf build
+        rm -rf ~/.pub-cache
+        rm -rf android/.gradle
 
     - name: Get dependencies
       run: flutter pub get
 
     - name: Build APK Release
-      run: flutter build apk --release --verbose
+      run: flutter build apk --release --verbose 
 
     - name: Upload APK
       uses: actions/upload-artifact@v4
