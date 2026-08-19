@@ -13,27 +13,23 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Java
+    - name: Setup Java 17
       uses: actions/setup-java@v4
       with:
         distribution: 'zulu'
         java-version: '17'
 
-    - name: Setup Flutter
+    - name: Setup Flutter 3.24.5
       uses: subosito/flutter-action@v2
       with:
         flutter-version: '3.24.5'
         channel: 'stable'
-        cache: true
+        cache: false
 
-    - name: Flutter doctor
-      run: flutter doctor -v
-
-    - name: Flutter clean
-      run: flutter clean
-
-    - name: Delete build folder
-      run: rm -rf build
+    - name: Nuclear Clean
+      run: |
+        flutter clean
+        rm -rf build
 
     - name: Get dependencies
       run: flutter pub get
