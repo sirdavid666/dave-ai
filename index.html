@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dave AI - Master Jarvis</title>
+<style>
+  body{background:#000;color:#00ff88;font-family:'Courier New', monospace;padding:10px;margin:0}
+  h2{text-align:center;color:#00ff88;margin:5px 0}
+  #chat{height:42vh;overflow:auto;border:2px solid #00ff88;padding:10px;margin-bottom:10px;background:#050505;border-radius:8px;font-size:14px}
+  #mic{width:100%;padding:20px;background:#00ff88;border:0;color:#000;font-size:18px;border-radius:12px;font-weight:bold;cursor:pointer}
+  #mic:active{background:#00cc66}
+  h3{margin:10px 0 5px 0}
+  #audiomack{width:100%;height:180px;border:0;border-radius:8px;background:#111}
+  .error{color:#ff0044}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.46/lib/index.min.js"></script>
+</head>
+<body>
+<h2>DAVE AI - FOR MASTER</h2>
+<div id="chat">Dave: Booting Qwen brain for Master...</div>
+<button id="mic">🎤 TAP TO TALK - "Hey Dave"</button>
+
+<h3>Music - Audiomack</h3>
+<iframe id="audiomack" src="about:blank" allow="autoplay"></iframe>
+
+<script>
+let engine; 
+let isSpeaking = false;
+const chat = document.getElementById('chat');
+
+// ====== MASTER PERSONAL SETUP ======
+const MY_NAME = "Master";
+const MY_TITLES = ["mr david", "boss", "master", "hey dave"];
+const MY_TASKS = ["Read Bible", "Do exercise", "Eat and get ready to kick out"];
+const MY_CONTACTS = {
+  "dad": "+2348056710546", 
+  "mum": "+2348055633348", 
+  "mummy": "+2348055633348",
+  "hermano": "+2349122362006", 
+  "brother": "+2349122362006",
+  "sister": "+2347086930269", 
+  "my sister": "+2347086930269"
+}
+const MOTIVATION = [
+  "Master, discipline is choosing between what you want now and what you want most.",
+  "You don't rise to the level of your goals. You fall to the level of your systems.",
+  "Read Bible, do exercise, eat, then go dominate. That's the Master way."
+];
+// ============================================
+
+// ====== SAFE SPEAK FUNCTION ======
+function speak(t){
+  if(isSpeaking) return; // Don't talk over itself
+  isSpeaking = true;
+  const u = new SpeechSynthesisUtterance(t); 
+  u.lang='en-US'; 
+  u.rate=0.9; 
+  u.pitch=1.1;
+  u.onend = ()=>{isSpeaking = false;}
+  u.onerror = ()=>{isSpeaking = false;}
+  speechSynthesis.speak(u);
+  chat.innerHTML += `<br><b>Dave:</b> ${t}`;
+}
+function log(t){ chat.innerHTML += `<br><b>Dave:</b> ${t}`; }
+function logError(e){ chat.innerHTML += `<br><span class="error">Dave: ${e}</span>`; }
+
+// ====== LOAD QWEN BRAIN OFFLINE ======
+async function initLLM(){
+  try{
+    engine = await webllm.CreateMLCEngine(
+      {model: "Qwen2-1.5B-Instruct-q4"}, 
+      {
+        initProgressCallback: r => {
+          chat.innerHTML = `Dave: Downloading Qwen brain... ${Math.round(r.progress*100)}%<br>Keep this page open. ~1.1GB. Use WiFi.`;
+        }
+      }
+    );
+    log(`Qwen brain loaded. Good morning ${MY_NAME}. I'm online for you only.`);
+    setTimeout(morningRoutine, 5000);
+  } catch(e){ 
+    logError("Brain failed to load. Refresh and check storage."); 
+  }
+}
+initLLM();
+
+// ====== VOICE RECOGNITION ======
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+if(!SR){ logError("Use Chrome browser for voice"); }
+const rec = new SR(); 
+rec.lang='en-US'; 
+rec.continuous = false;
+
+rec.onresult = async e => {
+  try{
+    const cmd = e.results[0][0].transcript.toLowerCase();
+    chat.innerHTML += `<br><b>You:</b> ${cmd}`;
+    
+    const calledMe = MY_TITLES.some(title => cmd.includes(title));
+    if(!calledMe) return;
+
+    // 1. CALL SOMEONE
+    if(cmd.includes("call")){
+      for(let name in MY_CONTACTS){
+        if(cmd.includes(name)){
+          window.location.href = `tel:${MY_CONTACTS[name]}`;
+          speak(`Yes ${MY_NAME}, calling ${name} now.`);
+          return;
+        }
+      }
+      speak("I don't have that contact Master");
+      return;
+    }
+
+    // 2. WHATSAPP MESSAGE
+    if(cmd.includes("message") || cmd.includes("text")){
+      for(let name in MY_CONTACTS){
+        if(cmd.includes(name)){
+          const msg = cmd.replace(/message|text|to|${name}/g, '').trim();
+          if(!navigator.onLine){ speak("Need internet for WhatsApp Master"); return; }
+          window.open(`https://wa.me/${MY_CONTACTS[name].replace(/[^0-9]/g,'')}?text=${encodeURIComponent(msg || "Hello from Master")}`, '_blank');
+          speak(`Opening WhatsApp to message ${name}`);
+          return;
+        }
+      }
+    }
+
+    // 3. AUDIOMACK MUSIC
+    if(cmd.includes("play music") || cmd.includes("play song")){
+      if(!navigator.onLine){ speak("I need internet to play Audiomack Master"); return; }
+      document.getElementById('audiomack').src = "https://audiomack.com/embed/playlist/trending";
+      speak("Playing trending music from Audiomack for you Master");
+      return;
+    }
+    if(cmd.includes("stop music")){
+      document.getElementById('audiomack').src = "about:blank";
+      speak("Music stopped Master");
+      return;
+    }
+
+    // 4. OTHER COMMANDS
+    if(cmd.includes("motivate")){
+      speak(MOTIVATION[Math.floor(Math.random()*MOTIVATION.length)]);
+      return;
+    }
+    if(cmd.includes("tasks") || cmd.includes("what to do")){
+      speak(`${MY_NAME}, today we have: ${MY_TASKS.join(', ')}. Let's get it done.`);
+      return;
+    }
+
+    // 5. QWEN AI CHAT
+    log("Thinking...");
+    const reply = await engine.chat.completions.create({
+      messages:[{role:"user",content:cmd}],
+      temperature: 0.7
+    });
+    speak(reply.choices[0].message.content);
+  } catch(e){ 
+    logError("Command failed. Try again Master."); 
+  }
+}
+rec.onerror = ()=>logError("Mic error. Check permission.");
+rec.onend = ()=>{};
+document.getElementById('mic').onclick = ()=>{ 
+  try{rec.start();}catch(e){logError("Mic is busy. Wait 2 seconds.");}
+}
+
+// ====== PROACTIVE: DAVE TALKS BY HIMSELF ======
+function morningRoutine(){
+  if(isSpeaking) return;
+  const weather = "Clear skies, 31 degrees in Lagos"; // Edit this daily
+  speak(`Good morning ${MY_NAME}. Weather today: ${weather}. Your tasks: ${MY_TASKS.join(', ')}. Time to kick out and dominate.`);
+}
+
+function proactiveCheck(){
+  if(isSpeaking) return;
+  const h = new Date().getHours();
+  if(h === 7) morningRoutine();
+  else {
+    const quotes = ["Just checking in Master. Stay focused.", "You good Boss? Remember the mission.", "Mr David, greatness is calling."];
+    speak(quotes[Math.floor(Math.random()*quotes.length)]);
+  }
+}
+// Check every 3 hours
+setInterval(proactiveCheck, 3 * 60 * 60 * 1000);
+</script>
+</body>
+</html>
