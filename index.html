@@ -68,8 +68,11 @@ function logError(e){ chat.innerHTML += `<br><span class="error">Dave: ${e}</spa
 // ====== LOAD QWEN BRAIN OFFLINE ======
 async function initLLM(){
   try{
+    // FIX: model ID must be a plain string matching web-llm's exact
+    // registered ID. "Qwen2-1.5B-Instruct-q4" does not exist in the
+    // model list — the correct ID is below.
     engine = await webllm.CreateMLCEngine(
-      {model: "Qwen2-1.5B-Instruct-q4"}, 
+      "Qwen2-1.5B-Instruct-q4f16_1-MLC",
       {
         initProgressCallback: r => {
           chat.innerHTML = `Dave: Downloading Qwen brain... ${Math.round(r.progress*100)}%<br>Keep this page open. ~1.1GB. Use WiFi.`;
@@ -79,7 +82,10 @@ async function initLLM(){
     log(`Qwen brain loaded. Good morning ${MY_NAME}. I'm online for you only.`);
     setTimeout(morningRoutine, 5000);
   } catch(e){ 
-    logError("Brain failed to load. Refresh and check storage."); 
+    // FIX: surface the real error instead of a generic message,
+    // so any future failure is diagnosable from the chat log itself.
+    console.error(e);
+    logError("Brain failed to load: " + (e && e.message ? e.message : e));
   }
 }
 initLLM();
@@ -149,6 +155,10 @@ rec.onresult = async e => {
     }
 
     // 5. QWEN AI CHAT
+    if(!engine){
+      speak("My brain isn't loaded yet Master, give it a moment or refresh.");
+      return;
+    }
     log("Thinking...");
     const reply = await engine.chat.completions.create({
       messages:[{role:"user",content:cmd}],
@@ -156,7 +166,8 @@ rec.onresult = async e => {
     });
     speak(reply.choices[0].message.content);
   } catch(e){ 
-    logError("Command failed. Try again Master."); 
+    console.error(e);
+    logError("Command failed: " + (e && e.message ? e.message : e));
   }
 }
 rec.onerror = ()=>logError("Mic error. Check permission.");
