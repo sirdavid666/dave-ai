@@ -85,7 +85,7 @@ async function initLLM(){
         }
       }
     );
-    log(`Qwen brain loaded. Good morning ${MY_NAME}. I'm online for you only.`);
+    log(`Brain loaded. Good morning ${MY_NAME}. I'm online for you only.`);
     setTimeout(morningRoutine, 5000);
   } catch(e){ 
     // FIX: surface the real error instead of a generic message,
@@ -185,7 +185,7 @@ document.getElementById('mic').onclick = ()=>{
 // ====== PROACTIVE: DAVE TALKS BY HIMSELF ======
 function morningRoutine(){
   if(isSpeaking) return;
-  const weather = "Clear skies, 31 degrees in Lagos"; // Edit this daily
+  const weather = "Clear skies, 31 degrees in Ibadan"; // Edit this daily
   speak(`Good morning ${MY_NAME}. Weather today: ${weather}. Your tasks: ${MY_TASKS.join(', ')}. Time to kick out and dominate.`);
 }
 
