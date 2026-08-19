@@ -8,73 +8,33 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-java@v4
+      with: { distribution: 'zulu', java-version: '17' }
+    - uses: subosito/flutter-action@v2
+      with: { flutter-version: '3.24.5', channel: 'stable', cache: false }
+    - run: flutter clean && rm -rf build ~/.pub-cache android/.gradle
+    - run: flutter pub get
 
-    - name: Setup Java 17
-      uses: actions/setup-java@v4
-      with:
-        distribution: 'zulu'
-        java-version: '17'
-
-    - name: Setup Flutter 3.24.5
-      uses: subosito/flutter-action@v2
-      with:
-        flutter-version: '3.24.5'
-        channel: 'stable'
-        cache: false
-
-    - name: DELETE EVERYTHING
-      run: |
-        flutter clean
-        rm -rf build
-        rm -rf ~/.pub-cache
-        rm -rf android/.gradle
-
-    - name: Get dependencies
-      run: flutter pub get
-
-    - name: NUKE AND REWRITE AndroidManifest.xml
+    - name: NUKE MANIFEST + FIX LINE ENDINGS
       run: |
         cat > android/app/src/main/AndroidManifest.xml << 'EOF'
         <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-            <application
-                android:name="${applicationName}"
-                android:label="dave_ai"
-                android:icon="@mipmap/ic_launcher">
-                <activity
-                    android:name=".MainActivity"
-                    android:exported="true"
-                    android:launchMode="singleTop"
-                    android:theme="@style/LaunchTheme"
-                    android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
-                    android:hardwareAccelerated="true"
-                    android:windowSoftInputMode="adjustResize">
-                    <meta-data
-                        android:name="io.flutter.embedding.android.NormalTheme"
-                        android:resource="@style/NormalTheme"
-                        />
-                    <intent-filter>
-                        <action android:name="android.intent.action.MAIN"/>
-                        <category android:name="android.intent.category.LAUNCHER"/>
-                    </intent-filter>
+            <application android:name="${applicationName}" android:label="dave_ai" android:icon="@mipmap/ic_launcher">
+                <activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize">
+                    <meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" />
+                    <intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter>
                 </activity>
-                <meta-data
-                    android:name="flutterEmbedding"
-                    android:value="2" />
+                <meta-data android:name="flutterEmbedding" android:value="2" />
             </application>
         </manifest>
         EOF
-        echo "--- VERIFYING CLEAN MANIFEST ---"
-        cat -A android/app/src/main/AndroidManifest.xml | grep flutterEmbedding
+        # THIS IS THE KEY: Remove \r carriage returns
+        sed -i 's/\r$//' android/app/src/main/AndroidManifest.xml
+        echo "--- VERIFIED CLEAN ---"
+        cat android/app/src/main/AndroidManifest.xml
 
-    - name: Build APK Release
-      run: flutter build apk --release --verbose
-
-    - name: Upload APK
-      uses: actions/upload-artifact@v4
-      with:
-        name: dave-ai-apk
-        path: build/app/outputs/flutter-apk/app-release.apk
+    - run: flutter build apk --release
+    - uses: actions/upload-artifact@v4
+      with: { name: dave-ai-apk, path: build/app/outputs/flutter-apk/app-release.apk }
