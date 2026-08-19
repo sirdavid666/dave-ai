@@ -1,5 +1,4 @@
 name: Build APK
-
 on:
   push:
     branches: [ main ]
@@ -10,21 +9,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
+
     - uses: actions/setup-java@v4
       with: { distribution: 'zulu', java-version: '17' }
+
     - uses: subosito/flutter-action@v2
       with: { flutter-version: '3.24.5', channel: 'stable', cache: false }
+
     - run: flutter clean && rm -rf build ~/.pub-cache android/.gradle
+
     - run: flutter pub get
 
-    - name: FORCE CLEAN MAIN MANIFEST V3
+    - name: DELETE AND RECREATE MANIFEST FROM ZERO
       run: |
-        mkdir -p android/app/src/main
-        echo '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:name="${applicationName}" android:label="dave_ai" android:icon="@mipmap/ic_launcher"><activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize"><meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" /><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity><meta-data android:name="flutterEmbedding" android:value="2" /></application></manifest>' > android/app/src/main/AndroidManifest.xml
-        echo "--- VERIFY FILE EXISTS ---"
-        ls -la android/app/src/main/AndroidManifest.xml
-        cat android/app/src/main/AndroidManifest.xml
+        rm -f android/app/src/main/AndroidManifest.xml
+        printf '%s' '<manifest xmlns:android="http://schemas.android.com/apk/res/android"><application android:name="${applicationName}" android:label="dave_ai" android:icon="@mipmap/ic_launcher"><activity android:name=".MainActivity" android:exported="true" android:launchMode="singleTop" android:theme="@style/LaunchTheme" android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode" android:hardwareAccelerated="true" android:windowSoftInputMode="adjustResize"><meta-data android:name="io.flutter.embedding.android.NormalTheme" android:resource="@style/NormalTheme" /><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity><meta-data android:name="flutterEmbedding" android:value="2" /></application></manifest>' > android/app/src/main/AndroidManifest.xml
+
+    - name: VERIFY manifest is byte-clean (proof, not just hope)
+      run: |
+        echo "--- byte-level dump ---"
+        cat -A android/app/src/main/AndroidManifest.xml
+        echo "--- hex dump of quote chars only ---"
+        xxd android/app/src/main/AndroidManifest.xml | grep -i "22\|e2 80" || echo "No smart-quote byte sequences (e2 80 9c/9d) found — clean."
+
+    - name: Check for OTHER manifest variants that could also be corrupted
+      run: |
+        echo "Scanning for any other AndroidManifest.xml in the project..."
+        find android -name "AndroidManifest.xml" -exec echo "Found: {}" \; -exec cat -A {} \;
 
     - run: flutter build apk --release --verbose
+
     - uses: actions/upload-artifact@v4
       with: { name: dave-ai-apk, path: build/app/outputs/flutter-apk/app-release.apk }
