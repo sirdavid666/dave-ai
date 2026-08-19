@@ -73,14 +73,15 @@ function logError(e){ chat.innerHTML += `<br><span class="error">Dave: ${e}</spa
 // ====== LOAD QWEN BRAIN OFFLINE ======
 async function initLLM(){
   try{
-    // FIX: model ID must be a plain string matching web-llm's exact
-    // registered ID. "Qwen2-1.5B-Instruct-q4" does not exist in the
-    // model list — the correct ID is below.
+    // SWITCHED: TinyLlama instead of Qwen2-1.5B — roughly 600-700MB
+    // instead of 1.1GB, and needs less active memory to run, which
+    // matters on a phone. Responses will be less coherent than Qwen,
+    // but this is a real, valid model ID from web-llm's model list.
     engine = await webllm.CreateMLCEngine(
-      "Qwen2-1.5B-Instruct-q4f16_1-MLC",
+      "TinyLlama-1.1B-Chat-v1.0-q4f16_1-MLC",
       {
         initProgressCallback: r => {
-          chat.innerHTML = `Dave: Downloading Qwen brain... ${Math.round(r.progress*100)}%<br>Keep this page open. ~1.1GB. Use WiFi.`;
+          chat.innerHTML = `Dave: Downloading TinyLlama brain... ${Math.round(r.progress*100)}%<br>Keep this page open. ~600-700MB. Use WiFi.`;
         }
       }
     );
