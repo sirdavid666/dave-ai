@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace "com.dave.ai.jarvis"
-    compileSdkVersion 34
+    compileSdkVersion 36
 
     defaultConfig {
         applicationId "com.dave.ai.jarvis"
