@@ -15,6 +15,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 import io.flutter.plugins.GeneratedPluginRegistrant
+import java.text.SimpleDateFormat
 import java.util.*
 
 class MainActivity: FlutterActivity() {
@@ -64,6 +65,7 @@ class MainActivity: FlutterActivity() {
             if (status == TextToSpeech.SUCCESS) {
                 tts.language = Locale.US
                 tts.setSpeechRate(1.0f)
+                tts.setPitch(1.0f)
             }
         }
     }
@@ -79,8 +81,9 @@ class MainActivity: FlutterActivity() {
             override fun onError(error: Int) {
                 isListening = false
                 val errorMsg = when(error) {
-                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Timeout. Hold mic longer"
+                    SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "Timeout. Hold mic longer Boss"
                     SpeechRecognizer.ERROR_CLIENT -> "Mic error. Restart app"
+                    SpeechRecognizer.ERROR_NETWORK -> "Network error. Offline pack missing"
                     else -> "Error: $error"
                 }
                 runOnUiThread {
@@ -106,7 +109,7 @@ class MainActivity: FlutterActivity() {
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, "en-US")
-                putExtra(RecognizerIntent.EXTRA_OFFLINE, true) // FORCE OFFLINE
+                putExtra("android.speech.extra.OFFLINE", true) // FIXED: Works on all SDKs
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 3000L) // Tecno fix
                 putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2000L)
             }
@@ -127,15 +130,22 @@ class MainActivity: FlutterActivity() {
 
     private fun handleCommand(command: String) {
         val response = when {
-            command.contains("hey buddy") || command.contains("hey man") -> "We outside Boss. I'm solid Boss. Wetin you want me do?"
-            command.contains("time") -> "The time be ${java.text.SimpleDateFormat("h:mm a", Locale.US).format(Date())} Boss"
-            command.contains("date") -> "Today be ${java.text.SimpleDateFormat("EEEE, MMM d", Locale.US).format(Date())}"
+            command.contains("hey buddy") || command.contains("hey man") || command.contains("dave") -> 
+                "We outside Boss. I'm solid Boss. Wetin you want me do?"
+            command.contains("time") -> 
+                "The time be ${SimpleDateFormat("h:mm a", Locale.US).format(Date())} Boss"
+            command.contains("date") -> 
+                "Today be ${SimpleDateFormat("EEEE, MMM d", Locale.US).format(Date())}"
             command.contains("battery") -> {
                 val bm = getSystemService(BATTERY_SERVICE) as android.os.BatteryManager
                 "Battery dey ${bm.getIntProperty(android.os.BatteryManager.BATTERY_PROPERTY_CAPACITY)} percent Boss"
             }
-            command.contains("joke") -> "Why computer go hospital? Because e get virus Boss 😂"
-            else -> "I hear you Boss. I can do time, date, battery, and jokes. Try again"
+            command.contains("joke") -> 
+                "Why computer go hospital? Because e get virus Boss 😂"
+            command.contains("thank you") -> 
+                "You be my Boss. Anytime"
+            else -> 
+                "I hear you Boss. Say hey buddy, time, date, battery, or joke"
         }
         speak(response)
     }
