@@ -113,7 +113,7 @@ Future<void> _scheduleDailyBriefings() async {
     frequency: const Duration(hours: 24),
     initialDelay: _getInitialDelay(7, 0),
     constraints: Constraints(
-      networkType: NetworkType.notRequired,
+      networkType: NetworkType.not_required,
       requiresBatteryNotLow: false,
       requiresCharging: false,
     ),
@@ -126,7 +126,7 @@ Future<void> _scheduleDailyBriefings() async {
     frequency: const Duration(hours: 24),
     initialDelay: _getInitialDelay(22, 0),
     constraints: Constraints(
-      networkType: NetworkType.notRequired,
+      networkType: NetworkType.not_required,
       requiresBatteryNotLow: false,
       requiresCharging: false,
     ),
