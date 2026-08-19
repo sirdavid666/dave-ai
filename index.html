@@ -14,7 +14,6 @@
   #audiomack{width:100%;height:180px;border:0;border-radius:8px;background:#111}
   .error{color:#ff0044}
 </style>
-<script src="https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.46/lib/index.min.js"></script>
 </head>
 <body>
 <h2>DAVE AI - FOR MASTER</h2>
@@ -24,7 +23,13 @@
 <h3>Music - Audiomack</h3>
 <iframe id="audiomack" src="about:blank" allow="autoplay"></iframe>
 
-<script>
+<script type="module">
+// FIX: web-llm is distributed as an ES module, not a global script.
+// The old <script src="...index.min.js"> tag never created a
+// `window.webllm` object, which is why you saw "webllm is not defined".
+// This import is the correct, officially documented way to load it.
+import * as webllm from "https://esm.run/@mlc-ai/web-llm@0.2.46";
+
 let engine; 
 let isSpeaking = false;
 const chat = document.getElementById('chat');
