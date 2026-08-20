@@ -65,7 +65,7 @@ class DaveService {
     if(actionResult!= null) return actionResult;
     String systemPrompt = "User: $message\nAssistant:";
     try {
-      String response = await _llama!.prompt(systemPrompt);
+      String response = await _llama!.chat(systemPrompt); // FIXED: prompt -> chat
       response = response.replaceAll("Assistant:", "").trim();
       await speak(response);
       return response;
@@ -88,7 +88,7 @@ class DaveService {
         await speak("Download complete Boss. Loading brain");
       }
       _llama = FlutterLlama();
-      await _llama!.loadModel(modelPath);
+      await _llama!.init(modelPath: modelPath); // FIXED: loadModel -> init
       _llmReady = true;
       await speak("Brain online Boss");
     } catch (e) {
