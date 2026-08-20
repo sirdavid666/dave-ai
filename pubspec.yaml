@@ -9,9 +9,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  llama_flutter_android: ^0.1.0  # FIX: Pin version
-  flutter_tts: ^4.2.0            # FIX: Update for SDK 36
-  speech_to_text: ^7.3.0         # FIX: Update for SDK 36
+  
+  # SPEECH - CHANGED
+  flutter_stt: ^0.2.2
+  flutter_tts: ^4.2.0
+  
+  # BRAIN
+  llama_flutter_android: ^0.1.0
+  
+  # OTHER DAVE STUFF
   workmanager: ^0.5.2
   battery_plus: ^6.0.0
   hive: ^2.2.3
