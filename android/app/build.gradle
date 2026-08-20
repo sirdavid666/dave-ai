@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace "com.dave.ai.jarvis"
-    compileSdkVersion 34  // CHANGED: 36 breaks old plugins. Use 34
+    compileSdkVersion 34
     ndkVersion flutter.ndkVersion
 
     defaultConfig {
@@ -31,7 +31,9 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
-            minifyEnabled false
+            minifyEnabled true      // FIX 1: TURN ON CODE SHRINKING
+            shrinkResources true    // FIX 2: NOW THIS WILL WORK
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
     }
 }
