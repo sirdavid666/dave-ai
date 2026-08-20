@@ -7,7 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:llama_flutter_android/llama_flutter_android.dart'; // FIXED
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -56,21 +56,12 @@ class DaveService {
   final String modelUrl = "https://github.com/sirdavid666/dave-ai/releases/download/v1.0-brain/tinyllama.gguf";
   final String modelFileName = "tinyllama.gguf";
 
-  // FAMILY CONTACTS - YOUR REAL NUMBERS UPDATED
+  // FAMILY CONTACTS - YOUR REAL NUMBERS
   final Map<String, String> familyContacts = {
-    "dad": "08056710546",
-    "father": "08056710546",
-    "daddy": "08056710546",
-
-    "mum": "08055633348",
-    "mother": "08055633348",
-    "mummy": "08055633348",
-
-    "sister": "+2347086930269",
-    "sis": "+2347086930269",
-
-    "brother": "+2349122362006",
-    "bro": "+2349122362006"
+    "dad": "08056710546", "father": "08056710546", "daddy": "08056710546",
+    "mum": "08055633348", "mother": "08055633348", "mummy": "08055633348",
+    "sister": "+2347086930269", "sis": "+2347086930269",
+    "brother": "+2349122362006", "bro": "+2349122362006"
   };
 
   // CATCHPHRASES
@@ -105,7 +96,7 @@ class DaveService {
     await scheduleBriefings();
   }
 
-  // 1. TINYLLAMA BRAIN
+  // 1. TINYLLAMA BRAIN - FIXED FOR ANDROID
   Future<void> _initLLM() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
@@ -121,7 +112,7 @@ class DaveService {
         await speak("Download complete Boss. Loading brain");
       }
 
-      await LlamaCpp.init(modelPath: modelPath);
+      await LlamaFlutterAndroid.loadModel(modelPath); // FIXED
       _llmReady = true;
       await speak("Brain online Boss");
     } catch (e) {
@@ -149,7 +140,7 @@ class DaveService {
 
     try {
       final prompt = "User: $message\nAssistant:";
-      final response = await LlamaCpp.prompt(prompt);
+      final response = await LlamaFlutterAndroid.prompt(prompt); // FIXED
       String result = response.trim();
       await speak(result);
       _saveConversation(message, result);
@@ -164,8 +155,6 @@ class DaveService {
   // 3. CALL + WHATSAPP HANDLER
   Future<String?> _handleActions(String text) async {
     String lower = text.toLowerCase();
-
-    // CALL FAMILY
     for (String name in familyContacts.keys) {
       if(lower.contains("call $name")) {
         String number = familyContacts[name]!;
@@ -174,15 +163,12 @@ class DaveService {
         return "Calling $name";
       }
     }
-
-    // WHATSAPP FAMILY
     if(lower.contains("message") && lower.contains("whatsapp")) {
       try {
         String name = lower.split("message")[1].split("on whatsapp")[0].trim();
         String msg = text.contains(":")? text.split(":")[1].trim() : "Hi Boss";
         String number = familyContacts[name]?? "";
         if(number.isEmpty) return "I don't have $name's number Boss";
-
         final Uri url = Uri.parse("https://wa.me/$number?text=${Uri.encodeComponent(msg)}");
         if(await canLaunchUrl(url)) {
           await launchUrl(url);
@@ -193,13 +179,11 @@ class DaveService {
     return null;
   }
 
-  // 4. VOICE
   Future<void> speak(String text) async {
     await tts.stop();
     await tts.speak(text);
   }
 
-  // 5. MEMORY + ACTIVITY
   void recordActivity() => settingsBox.put('last_activity', DateTime.now().toIso8601String());
   void _saveConversation(String user, String dave) {
     List history = conversationsBox.get('chat_history', defaultValue: []);
@@ -207,7 +191,6 @@ class DaveService {
     conversationsBox.put('chat_history', history);
   }
 
-  // 6. RULE-BASED FALLBACK
   String getResponse(String rawInput) {
     final input = rawInput.toLowerCase().trim();
     if (myGreetings.any((g) => input.contains(g))) return withCatchphrase(pick(greetings));
@@ -218,7 +201,6 @@ class DaveService {
     return withCatchphrase("I hear you Master $masterName");
   }
 
-  // 7. PROACTIVE BRIEFINGS
   Future<String> buildMorningBriefing() async {
     int batt = await battery.batteryLevel;
     return "Good morning Master $masterName. Battery: $batt%. Let's go get it Boss.";
