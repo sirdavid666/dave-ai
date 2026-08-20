@@ -6,7 +6,8 @@ plugins {
 
 android {
     namespace "com.dave.ai.jarvis"
-    compileSdkVersion 36
+    compileSdkVersion 34  // CHANGED: 36 breaks old plugins. Use 34
+    ndkVersion flutter.ndkVersion
 
     defaultConfig {
         applicationId "com.dave.ai.jarvis"
@@ -30,6 +31,7 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.debug
+            minifyEnabled false
         }
     }
 }
@@ -38,4 +40,6 @@ dependencies {
     coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:2.0.4'
 }
 
-flutter { source '../..' }
+flutter { 
+    source '../..' 
+}
