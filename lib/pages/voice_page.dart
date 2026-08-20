@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:particles_flutter/particles_flutter.dart';
-import 'package:speech_to_text/speech_to_text.dart';
 import '../services/dave_service.dart';
 
 class VoicePage extends StatefulWidget {
@@ -11,56 +10,34 @@ class VoicePage extends StatefulWidget {
 }
 
 class _VoicePageState extends State<VoicePage> {
-  final SpeechToText _speech = SpeechToText();
   final DaveService _dave = DaveService.instance;
+  
   bool _isListening = false;
   bool _isSpeaking = false;
-  String _lastWords = "Say 'Hey Dave' Boss...";
-  String _daveResponse = "DAVE AI Online";
 
   @override
   void initState() {
     super.initState();
-    _initSpeech();
+    // LISTEN TO DAVESERVICE FOR LIVE UPDATES
+    _dave.status.addListener(_updateState);
+    _dave.transcript.addListener(_updateState);
+    _dave.response.addListener(_updateState);
   }
 
-  void _initSpeech() async {
-    await _speech.initialize();
-    await _dave.speak("DAVE AI Online. Yes Boss.");
-    _startListening(); // AUTO START
+  void _updateState() {
+    if(!mounted) return;
+    setState(() {
+      _isListening = _dave.status.value.contains("Listening");
+      _isSpeaking = _dave.status.value.contains("speaking");
+    });
   }
 
-  void _startListening() async {
-    if (!_isListening && !_isSpeaking) {
-      bool available = await _speech.initialize();
-      if (available) {
-        setState(() => _isListening = true);
-        _speech.listen(
-          onResult: (result) async {
-            setState(() {
-              _lastWords = result.recognizedWords; // LIVE SUBTITLE UPDATE
-            });
-            if (result.finalResult) {
-              setState(() => _isListening = false);
-              setState(() => _isSpeaking = true);
-              String response = await _dave.chat(_lastWords);
-              setState(() {
-                _daveResponse = response;
-                _isSpeaking = false;
-              });
-              await Future.delayed(const Duration(milliseconds: 500));
-              _startListening(); // LISTEN AGAIN
-            }
-          },
-          listenFor: const Duration(seconds: 15),
-          pauseFor: const Duration(seconds: 2),
-          localeId: "en_US",
-          partialResults: true, // THIS MAKES SUBTITLES LIVE
-          onDevice: true, // OFFLINE
-          cancelOnError: true,
-        );
-      }
-    }
+  @override
+  void dispose() {
+    _dave.status.removeListener(_updateState);
+    _dave.transcript.removeListener(_updateState);
+    _dave.response.removeListener(_updateState);
+    super.dispose();
   }
 
   @override
@@ -115,6 +92,7 @@ class _VoicePageState extends State<VoicePage> {
                 const SizedBox(height: 30),
                 
                 // 1. LIVE SUBTITLE - WHAT YOU SAID
+                ValueListenableBuilder(valueListenable: _dave.transcript, builder: (_, text, __) => 
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
                   padding: const EdgeInsets.all(16),
@@ -128,17 +106,18 @@ class _VoicePageState extends State<VoicePage> {
                       Text("YOU", style: TextStyle(fontSize: 12, color: _isListening ? const Color(0xFFFFD700) : Colors.white54)),
                       const SizedBox(height: 8),
                       Text(
-                        _lastWords,
+                        text.isEmpty ? "Say 'Hey Dave' Boss..." : text,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.w500),
                       ),
                     ],
                   ),
-                ).animate().fade(),
+                ).animate().fade()),
                 
                 const SizedBox(height: 20),
 
                 // 2. DAVE RESPONSE
+                ValueListenableBuilder(valueListenable: _dave.response, builder: (_, text, __) => 
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
                   padding: const EdgeInsets.all(16),
@@ -152,19 +131,20 @@ class _VoicePageState extends State<VoicePage> {
                       const Text("DAVE", style: TextStyle(fontSize: 12, color: Color(0xFF4A90E2))),
                       const SizedBox(height: 8),
                       Text(
-                        _daveResponse,
+                        text.isEmpty ? "DAVE AI Online" : text,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 20, color: Color(0xFF4A90E2), fontWeight: FontWeight.bold),
                       ),
                     ],
                   ),
-                ),
+                )),
 
                 const SizedBox(height: 30),
+                ValueListenableBuilder(valueListenable: _dave.status, builder: (_, status, __) => 
                 Text(
-                  _isListening ? "Listening..." : _isSpeaking ? "Speaking..." : "Standby",
+                  status,
                   style: TextStyle(fontSize: 16, color: _isListening ? const Color(0xFFFFD700) : Colors.white54),
-                ),
+                )),
               ],
             ),
           ),
