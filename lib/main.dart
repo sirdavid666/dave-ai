@@ -5,32 +5,32 @@ import 'package:workmanager/workmanager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:math';
 
 import 'dave_service.dart';
 
 const String morningTask = "morningBriefingTask";
 const String nightTask = "nightBriefingTask";
-const String MASTER_NAME = "DAVID EWAOLUWA";
+const String MASTER_NAME = "DAVID";
+
+final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     await Hive.initFlutter();
-    final DaveService dave = DaveService.instance;
-    await dave.init();
-    final notifications = FlutterLocalNotificationsPlugin();
-    
+    await DaveService.instance.init();
     if (task == morningTask) {
-      String briefing = await dave.buildMorningBriefing();
-      await notifications.show(1, "DAVE AI Morning", briefing, const NotificationDetails(android: AndroidNotificationDetails('morning_channel', 'Morning Briefing', importance: Importance.max)));
+      String briefing = await DaveService.instance.buildMorningBriefing();
+      await notifications.show(1, "🌅 Good Morning Master $MASTER_NAME", briefing, const NotificationDetails(android: AndroidNotificationDetails('morning_channel', 'Morning Briefing', importance: Importance.max, playSound: true)));
+      await DaveService.instance.speak("Good Morning Master $MASTER_NAME. $briefing");
     }
     if (task == nightTask) {
-      String briefing = await dave.buildNightBriefing();
-      await notifications.show(2, "DAVE AI Night", briefing, const NotificationDetails(android: AndroidNotificationDetails('night_channel', 'Night Briefing', importance: Importance.max)));
+      String briefing = await DaveService.instance.buildNightBriefing();
+      await notifications.show(2, "🌙 Good Night Master $MASTER_NAME", briefing, const NotificationDetails(android: AndroidNotificationDetails('night_channel', 'Night Briefing', importance: Importance.max, playSound: true)));
     }
     return Future.value(true);
   });
@@ -39,11 +39,18 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
+  await Hive.openBox('dave_memory');
   await DaveService.instance.init();
+  await _initNotifications();
   await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
   await _scheduleDailyBriefings();
   await [Permission.microphone, Permission.notification, Permission.storage].request();
   runApp(const DaveAIApp());
+}
+
+Future<void> _initNotifications() async {
+  const AndroidInitializationSettings android = AndroidInitializationSettings('@mipmap/ic_launcher');
+  await notifications.initialize(const InitializationSettings(android: android));
 }
 
 Future<void> _scheduleDailyBriefings() async {
@@ -65,24 +72,85 @@ class DaveAIApp extends StatelessWidget {
     return MaterialApp(
       title: 'DAVE AI',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(scaffoldBackgroundColor: Colors.black),
-      home: const DaveHomePage(),
+      theme: ThemeData.dark(),
+      home: const SplashScreen(),
     );
   }
 }
 
-class DaveHomePage extends StatefulWidget {
-  const DaveHomePage({super.key});
+// SPLASH SCREEN - SCREEN 1 FROM YOUR IMAGE
+class SplashScreen extends StatefulWidget {
+  const SplashScreen({super.key});
   @override
-  State<DaveHomePage> createState() => _DaveHomePageState();
+  State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _DaveHomePageState extends State<DaveHomePage> {
-  int _currentIndex = 0;
-  late WebViewController _controller;
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    Future.delayed(const Duration(seconds: 3), () {
+      Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
+    });
+  }
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          const GalaxyBackground(),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF4A00E0).withOpacity(0.3)),
+                  child: const Icon(Icons.smart_toy, size: 100, color: Color(0xFF00BFFF)),
+                ).animate().scale(duration: 1s).fade(),
+                const SizedBox(height: 20),
+                RichText(
+                  text: const TextSpan(
+                    children: [
+                      TextSpan(text: "DAVE ", style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.white)),
+                      TextSpan(text: "AI", style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Color(0xFF00BFFF))),
+                    ]
+                  ),
+                ).animate().fade(delay: 300.ms),
+                const SizedBox(height: 10),
+                const Text("Your smart productivity assistant", style: TextStyle(color: Colors.white70, fontSize: 16)).animate().fade(delay: 500.ms),
+                const SizedBox(height: 50),
+                const Text("Preparing Dave AI...", style: TextStyle(color: Colors.white54)).animate().fade(delay: 700.ms),
+                const SizedBox(height: 10),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(3, (i) => Container(margin: const EdgeInsets.symmetric(horizontal: 4), width: 8, height: 8, decoration: BoxDecoration(color: i==1? const Color(0xFF00BFFF): Colors.white30, shape: BoxShape.circle)))).animate().fade(delay: 900.ms),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// CHAT SCREEN - SCREEN 2 FROM YOUR IMAGE
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _chatController = TextEditingController();
+  final List<Map<String, String>> _chatMessages = [];
+  late WebViewController _brainController;
   bool _brainReady = false;
 
-  final List<String> _titles = ['Chat', 'Voice', 'Memory', 'Settings'];
+  final List<Map<String, dynamic>> _suggestions = [
+    {"text": "Plan my today's tasks", "icon": Icons.calendar_today, "color": Colors.blue},
+    {"text": "Give me productivity tips", "icon": Icons.lightbulb, "color": Colors.amber},
+    {"text": "Help me stay focused", "icon": Icons.gps_fixed, "color": Colors.red},
+    {"text": "Motivate me", "icon": Icons.star, "color": Colors.yellow},
+  ];
 
   @override
   void initState() {
@@ -97,126 +165,143 @@ class _DaveHomePageState extends State<DaveHomePage> {
       final data = await rootBundle.loadString('assets/index.html');
       await file.writeAsString(data.replaceAll("Master", "Master $MASTER_NAME"));
     }
-    _controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.transparent)
-      ..loadFile(file.path);
+    _brainController = WebViewController()
+    ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    ..loadFile(file.path);
     setState(() => _brainReady = true);
+  }
+
+  void _sendMessage(String msg) async {
+    if (msg.isEmpty) return;
+    setState(() => _chatMessages.add({'role': 'user', 'msg': msg}));
+    _chatController.clear();
+    String aiReply = await DaveService.instance.chat(msg);
+    setState(() => _chatMessages.add({'role': 'dave', 'msg': aiReply}));
+    DaveService.instance.speak(aiReply);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: Text("DAVE AI - ${_titles[_currentIndex]}", style: const TextStyle(color: Color(0xFF00FF88))),
-        backgroundColor: Colors.black.withOpacity(0.5),
-        elevation: 0,
-      ),
       body: Stack(
         children: [
-          const StarField(),
-          _buildBody(),
-        ],
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        backgroundColor: Colors.black.withOpacity(0.7),
-        selectedItemColor: const Color(0xFF00FF88),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-          BottomNavigationBarItem(icon: Icon(Icons.mic), label: 'Voice'),
-          BottomNavigationBarItem(icon: Icon(Icons.psychology_alt), label: 'Memory'),
-          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    switch (_currentIndex) {
-      case 0: return const Center(child: Text("Chat with DAVE", style: TextStyle(color: Colors.white, fontSize: 20)));
-      case 1: return VoiceTab(controller: _controller, brainReady: _brainReady);
-      case 2: return const Center(child: Text("Memory of DAVID EWAOLUWA", style: TextStyle(color: Colors.white, fontSize: 20)));
-      case 3: return const Center(child: Text("Settings", style: TextStyle(color: Colors.white, fontSize: 20)));
-      default: return Container();
-    }
-  }
-}
-
-class VoiceTab extends StatefulWidget {
-  final WebViewController controller;
-  final bool brainReady;
-  const VoiceTab({super.key, required this.controller, required this.brainReady});
-
-  @override
-  State<VoiceTab> createState() => _VoiceTabState();
-}
-
-class _VoiceTabState extends State<VoiceTab> {
-  bool _isListening = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 10, bottom: 150),
-            child: widget.brainReady 
-              ? WebViewWidget(controller: widget.controller)
-              : const Center(child: CircularProgressIndicator(color: Color(0xFF00FF88))),
-          ),
-          Positioned(
-            bottom: 100,
+          const GalaxyBackground(),
+          SafeArea(
             child: Column(
               children: [
-                GestureDetector(
-                  onTap: () {
-                    widget.controller.runJavaScript('if(typeof rec !== "undefined") rec.start();');
-                    setState(() => _isListening = true);
-                    Future.delayed(const Duration(seconds: 5), () => setState(() => _isListening = false));
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(25),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle, 
-                      color: _isListening ? Colors.red : const Color(0xFF00ff88),
-                      boxShadow: [BoxShadow(color: const Color(0xFF00ff88), blurRadius: 40, spreadRadius: _isListening ? 20 : 5)]
-                    ),
-                    child: const Icon(Icons.mic, size: 50, color: Colors.black),
-                  ).animate(target: _isListening ? 1 : 0).scale(duration: 600.ms).then().scale(duration: 600.ms),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    children: [
+                      const CircleAvatar(backgroundColor: Color(0xFF4A00E0), child: Icon(Icons.smart_toy, color: Colors.white)),
+                      const SizedBox(width: 10),
+                      const Text("Dave AI", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  widget.brainReady ? "TAP TO TALK, MASTER $MASTER_NAME" : "BOOTING BRAIN...",
-                  style: const TextStyle(color: Colors.white, fontSize: 16, letterSpacing: 1.2),
-                )
+                Expanded(
+                  child: _chatMessages.isEmpty? _buildWelcome() : _buildChatList(),
+                ),
+                _buildInputBar(),
               ],
             ),
-          )
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWelcome() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text("Hey $MASTER_NAME! 👋", style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.white)),
+          const Text("How can I help you today?", style: TextStyle(fontSize: 16, color: Colors.white70)),
+          const SizedBox(height: 30),
+         ..._suggestions.map((s) => _suggestionChip(s['text'], s['icon'], s['color'])).toList(),
+        ],
+      ),
+    );
+  }
+
+  Widget _suggestionChip(String text, IconData icon, Color color) {
+    return GestureDetector(
+      onTap: () => _sendMessage(text),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(color: Colors.white.withOpacity(0.08), borderRadius: BorderRadius.circular(15), border: Border.all(color: Colors.white.withOpacity(0.1))),
+        child: Row(children: [Icon(icon, color: color), const SizedBox(width: 12), Expanded(child: Text(text, style: const TextStyle(color: Colors.white)))])
+      ),
+    );
+  }
+
+  Widget _buildChatList() {
+    return ListView.builder(
+      padding: const EdgeInsets.all(10),
+      itemCount: _chatMessages.length,
+      itemBuilder: (context, i) {
+        bool isUser = _chatMessages[i]['role'] == 'user';
+        return Align(
+          alignment: isUser? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 5),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(color: isUser? const Color(0xFF4A00E0) : Colors.white.withOpacity(0.1), borderRadius: BorderRadius.circular(18)),
+            child: Text(_chatMessages[i]['msg']!, style: const TextStyle(color: Colors.white)),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildInputBar() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      color: Colors.black.withOpacity(0.3),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _chatController,
+              style: const TextStyle(color: Colors.white),
+              decoration: InputDecoration(
+                hintText: "Ask Dave AI anything...",
+                hintStyle: TextStyle(color: Colors.white54),
+                filled: true,
+                fillColor: Colors.white.withOpacity(0.08),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(25), borderSide: BorderSide.none),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          CircleAvatar(
+            backgroundColor: const Color(0xFF4A00E0),
+            child: IconButton(icon: const Icon(Icons.mic, color: Colors.white), onPressed: () {
+              _brainController.runJavaScript('if(typeof rec!== "undefined") rec.start();');
+            }),
+          ),
         ],
       ),
     );
   }
 }
 
-class StarField extends StatefulWidget {
-  const StarField({super.key});
+// GALAXY BACKGROUND
+class GalaxyBackground extends StatefulWidget {
+  const GalaxyBackground({super.key});
   @override
-  State<StarField> createState() => _StarFieldState();
+  State<GalaxyBackground> createState() => _GalaxyBackgroundState();
 }
 
-class _StarFieldState extends State<StarField> with SingleTickerProviderStateMixin {
+class _GalaxyBackgroundState extends State<GalaxyBackground> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 50))..repeat();
+    _controller = AnimationController(vsync: this, duration: const Duration(seconds: 60))..repeat();
   }
   @override
   void dispose() {
@@ -227,23 +312,28 @@ class _StarFieldState extends State<StarField> with SingleTickerProviderStateMix
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _controller,
-      builder: (_, __) => CustomPaint(painter: StarPainter(_controller.value), size: MediaQuery.of(context).size),
+      builder: (_, __) => Container(
+        decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF0B1026), Color(0xFF1a0b3d), Color(0xFF0B1026)])),
+        child: CustomPaint(painter: GalaxyPainter(_controller.value), size: MediaQuery.of(context).size),
+      ),
     );
   }
 }
 
-class StarPainter extends CustomPainter {
+class GalaxyPainter extends CustomPainter {
   final double progress;
-  StarPainter(this.progress);
+  GalaxyPainter(this.progress);
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()..color = Colors.white.withOpacity(0.8);
-    for (int i = 0; i < 150; i++) {
-      double x = (i * 37.0 + progress * 500) % size.width;
+    final paint = Paint();
+    for (int i = 0; i < 200; i++) {
+      double x = (i * 37.0 + progress * 300) % size.width;
       double y = (i * 53.0) % size.height;
-      canvas.drawCircle(Offset(x, y), 1.2, paint);
+      double opacity = 0.5 + 0.5 * sin(progress * 2 * pi + i);
+      paint.color = Colors.white.withOpacity(opacity);
+      canvas.drawCircle(Offset(x, y), Random(i).nextDouble() * 2, paint);
     }
   }
   @override
-  bool shouldRepaint(covariant StarPainter old) => true;
+  bool shouldRepaint(covariant GalaxyPainter old) => true;
 }
