@@ -65,7 +65,7 @@ class DaveService {
     if(actionResult!= null) return actionResult;
     try {
       final prompt = "User: $message\nAssistant:";
-      final response = await _llama!.prompt(prompt); // FIXED: prompt not createCompletion
+      final response = await _llama!.predict(prompt); // ACTUAL METHOD
       String result = response.trim();
       await speak(result);
       return result;
@@ -87,7 +87,8 @@ class DaveService {
         await dio.download(modelUrl, modelPath);
         await speak("Download complete Boss. Loading brain");
       }
-      _llama = Llama(modelPath); // FIXED: Constructor takes path
+      _llama = Llama(); // ACTUAL
+      await _llama!.load(modelPath); // ACTUAL METHOD
       _llmReady = true;
       await speak("Brain online Boss");
     } catch (e) {
