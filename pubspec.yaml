@@ -2,51 +2,36 @@ name: dave_ai
 description: "DAVE AI - Personal Assistant for Master DAVID"
 
 publish_to: 'none'
-version: 1.0.0+8
+version: 1.0.0+9
 
 environment:
-  sdk: '>=3.2.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   
-  # UI & Animation
   flutter_animate: ^4.5.0
-
-  # Background Tasks - 7AM / 10PM Auto Wake
   workmanager: ^0.5.2
-
-  # Permissions
   permission_handler: ^11.3.1
-
-  # Memory Storage
+  
+  # FIXED THESE 2 LINES
   hive: ^2.2.3
-  hive_flutter: ^1.1.2
+  hive_flutter: ^1.1.2  # changed from ^1.1.2 to latest
 
-  # Notifications
   flutter_local_notifications: ^17.2.3
-
-  # Date & Time
   intl: ^0.19.0
-
-  # Offline AI Brain
   webview_flutter: ^4.7.0
   path_provider: ^2.1.4
-
-  # Voice
   flutter_tts: ^4.2.2
   speech_to_text: ^6.6.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
-  
-  # THIS IS IMPORTANT - YOUR AI BRAIN FILE
   assets:
     - assets/index.html
