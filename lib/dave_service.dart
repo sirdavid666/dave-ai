@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -7,7 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
-import 'package:llm_runner/llm_runner.dart';
+import 'package:llama_flutter_android/llama_flutter_android.dart'; // FIXED
+import 'package:dio/dio.dart'; // FOR DOWNLOADING MODEL
+import 'package:path_provider/path_provider.dart'; // TO GET FILE PATH
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 
@@ -77,10 +80,15 @@ class DaveService {
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
+  LlamaFlutterAndroid? _llama; // FIXED
   bool _llmReady = false;
 
   final Random _rand = Random();
   final String masterName = "DAVID";
+
+  // MODEL INFO
+  final String modelUrl = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
+  final String modelFileName = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 
   // ===== ONLY FOR CALLING =====
   final Map<String, String> familyContacts = {
@@ -138,18 +146,40 @@ class DaveService {
     String? actionResult = await _handleActions(message);
     if(actionResult != null) return actionResult;
     
-    String systemPrompt = "You are DAVE, a loyal Nigerian AI assistant for Master DAVID. Be short, playful, call him Boss.";
-    String fullPrompt = "$systemPrompt\nUser: $message\nDAVE:";
+    String systemPrompt = "User: $message\nAssistant:"; // FIXED PROMPT FOR LLAMA
     
     try {
-      String response = await LlmRunner.generateText(prompt: fullPrompt, maxTokens: 120, temperature: 0.7);
-      response = response.replaceAll("DAVE:", "").trim();
+      String response = await _llama!.prompt(systemPrompt); // FIXED
+      response = response.replaceAll("Assistant:", "").trim();
       await speak(response);
       return response;
     } catch (e) {
       String fallback = getResponse(message);
       await speak(fallback);
       return fallback;
+    }
+  }
+
+  Future<void> _initLLM() async { // NEW FUNCTION
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final modelPath = "${dir.path}/$modelFileName";
+      final modelFile = File(modelPath);
+
+      if (!await modelFile.exists()) {
+        await speak("Downloading AI brain. 669MB. Please use wifi");
+        final dio = Dio();
+        await dio.download(modelUrl, modelPath);
+      }
+
+      _llama = LlamaFlutterAndroid();
+      await _llama!.loadModel(modelPath);
+      _llmReady = true;
+      await speak("Brain online Boss");
+    } catch (e) {
+      _llmReady = false;
+      await speak("Brain failed to load Boss");
+      print("LLM Error: $e");
     }
   }
 
@@ -174,14 +204,7 @@ class DaveService {
     await tts.setPitch(1.0);
     recordActivity();
 
-    try {
-      await LlmRunner.loadModel(LlmRunner.tinyllama);
-      _llmReady = true;
-      await speak("Brain online Boss");
-    } catch (e) {
-      _llmReady = false;
-      await speak("Brain failed to load Boss");
-    }
+    await _initLLM(); // FIXED: Call new function instead of LlmRunner
 
     await scheduleBriefings();
   }
