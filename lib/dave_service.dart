@@ -8,7 +8,33 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
 
-import 'models/dave_models.dart';
+// SIMPLE MODEL INSIDE SO WE DON'T NEED models/dave_models.dart
+class DaveTask {
+  String id;
+  String title;
+  DateTime? dueTime;
+  bool done;
+
+  DaveTask({required this.id, required this.title, this.dueTime, this.done = false});
+
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'title': title,
+      'dueTime': dueTime?.toIso8601String(),
+      'done': done,
+    };
+  }
+
+  factory DaveTask.fromMap(Map map) {
+    return DaveTask(
+      id: map['id'],
+      title: map['title'],
+      dueTime: map['dueTime'] != null ? DateTime.parse(map['dueTime']) : null,
+      done: map['done'] ?? false,
+    );
+  }
+}
 
 // TOP LEVEL FUNCTION FOR WORKMANAGER
 @pragma('vm:entry-point')
@@ -22,7 +48,7 @@ void callbackDispatcher() {
       String briefing = await dave.buildMorningBriefing();
       await dave.speak(briefing);
       await dave.notifications.show(
-        1, "DAVE AI Morning", briefing,
+        1, "🌅 DAVE AI Morning", briefing,
         const NotificationDetails(android: AndroidNotificationDetails('morning_channel', 'Morning Briefing', importance: Importance.max))
       );
     }
@@ -30,7 +56,7 @@ void callbackDispatcher() {
       String briefing = await dave.buildNightBriefing();
       await dave.speak(briefing);
       await dave.notifications.show(
-        2, "DAVE AI Night", briefing,
+        2, "🌙 DAVE AI Night", briefing,
         const NotificationDetails(android: AndroidNotificationDetails('night_channel', 'Night Briefing', importance: Importance.max))
       );
     }
@@ -52,6 +78,7 @@ class DaveService {
   late Box settingsBox;
 
   final Random _rand = Random();
+  final String masterName = "DAVID";
 
   // YOUR CATCHPHRASES
   static const starting = [
@@ -89,6 +116,11 @@ class DaveService {
     return "${pick(bank)} $base";
   }
 
+  // ADDED THIS FOR CHAT SCREEN
+  Future<String> chat(String message) async {
+    return getResponse(message);
+  }
+
   Future<void> init() async {
     await Hive.initFlutter();
     conversationsBox = await Hive.openBox('conversations');
@@ -97,7 +129,7 @@ class DaveService {
     settingsBox = await Hive.openBox('settings');
 
     if (userDataBox.get('name') == null) {
-      userDataBox.put('name', 'David Emeoluma');
+      userDataBox.put('name', masterName);
     }
 
     tzdata.initializeTimeZones();
@@ -140,12 +172,10 @@ class DaveService {
       return _handleReminder(reminderMatch);
     }
 
-    // 1. YOUR GREETINGS
     if (myGreetings.any((g) => input.contains(g))) {
       return withCatchphrase(pick(greetings));
     }
 
-    // 2. YOUR CHECK-INS
     if (myCheckins.any((c) => input.contains(c))) {
       List<String> replies = [
         "I'm solid Boss, just waiting on you",
@@ -155,44 +185,36 @@ class DaveService {
       return withCatchphrase(pick(replies));
     }
 
-    // 3. TIME
     if (input.contains("time")) {
       return withCatchphrase("It's ${DateFormat('h:mm a').format(DateTime.now())}, Boss.");
     }
 
-    // 4. DATE
     if (input.contains("date") || input.contains("today")) {
       return withCatchphrase("Today is ${DateFormat('EEEE, MMM d, y').format(DateTime.now())}.");
     }
 
-    // 5. BATTERY
     if (input.contains("battery")) {
       return "Checking battery for you, Boss - see the live reading in Settings.";
     }
 
-    // 6. JOKE
     if (input.contains("joke")) {
       return withCatchphrase(pick(jokes));
     }
 
-    // 7. THANK YOU
     if (input.contains("thank")) {
       return "Anytime, Boss. That's what I'm here for.";
     }
 
-    // 8. MOOD
     if (input.contains("tired") || input.contains("stressed") || input.contains("sad") || input.contains("down")) {
       return "${pick(encouraging)} Take a breath - you've handled worse than this.";
     }
 
-    // 9. PRAYER
     if (input.contains("prayer")) {
       final streak = userDataBox.get('prayer_streak', defaultValue: 0) as int;
       return "Your current prayer streak is $streak days, Boss. ${pick(encouraging)}";
     }
 
-    // 10. SMART FALLBACK
-    return withCatchphrase("I hear you Boss. I can do time, date, battery, jokes, and reminders. Wetin you want me do?");
+    return withCatchphrase("I hear you Master $masterName. I can do time, date, battery, jokes, and reminders. Wetin you want me do?");
   }
 
   String _handleReminder(RegExpMatch match) {
@@ -249,16 +271,16 @@ class DaveService {
 
   Future<String> buildMorningBriefing() async {
     final level = await battery.batteryLevel;
-    final name = userDataBox.get('name', defaultValue: 'Boss') as String;
+    final name = userDataBox.get('name', defaultValue: masterName) as String;
     final time = DateFormat('h:mm a').format(DateTime.now());
-    return "Good morning $name. We outside. It's $time. Battery: $level%. Today we have ${tasksTodayCount} tasks. Let's go get it.";
+    return "Good morning Master $name. We outside. It's $time. Battery: $level%. Today we have ${tasksTodayCount} tasks. Let's go get it.";
   }
 
   Future<String> buildNightBriefing() async {
     final level = await battery.batteryLevel;
-    final name = userDataBox.get('name', defaultValue: 'Boss') as String;
+    final name = userDataBox.get('name', defaultValue: masterName) as String;
     final time = DateFormat('h:mm a').format(DateTime.now());
-    return "Good night ${name.split(' ').first}. It's $time. Today we completed ${tasksDoneCount}/${tasksTodayCount} tasks. Not bad. Battery at $level%. Charge your phone. Proud of you for not breaking your prayer streak. Rest now. Tomorrow we attack again.";
+    return "Good night ${name.split(' ').first}. It's $time. Today we completed ${tasksDoneCount}/${tasksTodayCount} tasks. Not bad. Battery at $level%. Charge your phone. Proud of you Master $name. Rest now. Tomorrow we attack again.";
   }
 
   Future<void> scheduleBriefings() async {
