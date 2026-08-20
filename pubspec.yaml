@@ -10,12 +10,12 @@ dependencies:
   flutter:
     sdk: flutter
   
-  # SPEECH - CHANGED
-  flutter_stt: ^0.2.2
+  # SPEECH - FIXED: REAL VOSK VERSION
+  vosk_flutter: ^0.3.48
   flutter_tts: ^4.2.0
   
-  # BRAIN
-  llama_flutter_android: ^0.1.0
+  # BRAIN - UPDATED PER CHATGPT
+  llama_flutter_android: ^0.2.6
   
   # OTHER DAVE STUFF
   workmanager: ^0.5.2
