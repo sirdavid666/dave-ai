@@ -21,12 +21,13 @@ dependencies:
   flutter_tts: ^4.2.3
   speech_to_text: ^6.6.2
   battery_plus: ^5.1.2
-  timezone: ^0.9.4 # ADDED FOR 7AM/10PM BRIEFINGS
-  
+  timezone: ^0.9.4
+
   # NEW ONES FOR TINYLLAMA + CALLING
-  llm_runner: ^0.1.2
-  url_launcher: ^6.2.5
+  llama_flutter_android: ^0.2.0
+  url_launcher: ^6.3.0
   flutter_phone_direct_caller: ^2.1.1
+  dio: ^5.4.3
 
 dev_dependencies:
   flutter_test:
