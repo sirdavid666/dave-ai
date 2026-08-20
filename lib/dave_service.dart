@@ -7,6 +7,9 @@ import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
+import 'package:llm_runner/llm_runner.dart'; // THE BRAIN
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 
 // SIMPLE MODEL INSIDE SO WE DON'T NEED models/dave_models.dart
 class DaveTask {
@@ -76,6 +79,7 @@ class DaveService {
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
+  bool _llmReady = false; // TINYLLAMA STATUS
 
   final Random _rand = Random();
   final String masterName = "DAVID";
@@ -116,9 +120,31 @@ class DaveService {
     return "${pick(bank)} $base";
   }
 
-  // ADDED THIS FOR CHAT SCREEN
+  // ADDED THIS FOR CHAT SCREEN - NOW USES TINYLLAMA
   Future<String> chat(String message) async {
-    return getResponse(message);
+    recordActivity();
+    if(!_llmReady) {
+      return "Brain still loading Boss, wait 10 seconds";
+    }
+    
+    // 1. CHECK FOR ACTIONS FIRST
+    await _handleActions(message);
+    
+    // 2. ASK TINYLLAMA FOR SMART REPLY
+    String systemPrompt = "You are DAVE, a loyal Nigerian AI assistant for Master DAVID. Be short, playful, call him Boss. If asked about calls/messages, confirm you will do it.";
+    String fullPrompt = "$systemPrompt\nUser: $message\nDAVE:";
+    
+    try {
+      String response = await LlmRunner.generateText(prompt: fullPrompt, maxTokens: 120, temperature: 0.7);
+      response = response.replaceAll("DAVE:", "").trim();
+      
+      await speak(response);
+      return response;
+    } catch (e) {
+      String fallback = getResponse(message); // fallback to old rules
+      await speak(fallback);
+      return fallback;
+    }
   }
 
   Future<void> init() async {
@@ -143,7 +169,28 @@ class DaveService {
     await tts.setPitch(1.0);
     recordActivity();
 
+    // LOAD TINYLLAMA BRAIN - TAKES 15s FIRST TIME
+    try {
+      await LlmRunner.loadModel(LlmRunner.tinyllama);
+      _llmReady = true;
+      await speak("Brain online Boss");
+    } catch (e) {
+      _llmReady = false;
+    }
+
     await scheduleBriefings();
+  }
+
+  Future<void> _handleActions(String text) async {
+    text = text.toLowerCase();
+    if(text.contains("call")) {
+      await speak("Calling now Boss");
+      await FlutterPhoneDirectCaller.callNumber("08012345678"); // change number later
+    }
+    if(text.contains("whatsapp")) {
+      await speak("Opening WhatsApp Boss");
+      await launchUrl(Uri.parse("https://wa.me/2348012345678")); // change number later
+    }
   }
 
   Future<void> speak(String text) async {
@@ -163,6 +210,7 @@ class DaveService {
   }
 
   String getResponse(String rawInput) {
+    // FALLBACK RULES IF TINYLLAMA FAILS
     recordActivity();
     final input = rawInput.toLowerCase().trim();
     if (input.isEmpty) return "I didn't catch that, Boss. Say again?";
@@ -214,7 +262,7 @@ class DaveService {
       return "Your current prayer streak is $streak days, Boss. ${pick(encouraging)}";
     }
 
-    return withCatchphrase("I hear you Master $masterName. I can do time, date, battery, jokes, and reminders. Wetin you want me do?");
+    return withCatchphrase("I hear you Master $masterName. Wetin you want me do?");
   }
 
   String _handleReminder(RegExpMatch match) {
