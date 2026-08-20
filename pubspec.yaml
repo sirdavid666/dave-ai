@@ -20,8 +20,7 @@ dependencies:
   path_provider: ^2.1.4
   flutter_tts: ^4.2.3
   speech_to_text: ^6.6.2
-  battery_plus: ^5.1.2
-  timezone: ^0.9.4
+  battery_plus: ^4.0.2  # <-- FIXED THIS ONE
 
   # NEW ONES FOR TINYLLAMA + CALLING
   llama_flutter_android: ^0.2.0
