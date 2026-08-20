@@ -6,24 +6,12 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
-import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_flutter/llama_flutter.dart';
+import 'package:flutter_llama/flutter_llama.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
-
-class DaveTask {
-  String id;
-  String title;
-  DateTime? dueTime;
-  bool done;
-
-  DaveTask({required this.id, required this.title, this.dueTime, this.done = false});
-  Map<String, dynamic> toMap() => {'id': id, 'title': title, 'dueTime': dueTime?.toIso8601String(), 'done': done};
-  factory DaveTask.fromMap(Map map) => DaveTask(id: map['id'], title: map['title'], dueTime: map['dueTime']!= null? DateTime.parse(map['dueTime']) : null, done: map['done']?? false);
-}
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -48,47 +36,33 @@ void callbackDispatcher() {
 class DaveService {
   DaveService._internal();
   static final DaveService instance = DaveService._internal();
-
   final FlutterTts tts = FlutterTts();
   final Battery battery = Battery();
   final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
-
   late Box conversationsBox;
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
-  LlamaFlutter? _llama;
+  FlutterLlama? _llama;
   bool _llmReady = false;
-
   final Random _rand = Random();
   final String masterName = "DAVID";
   final String modelUrl = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
-  final String modelFileName = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
-
-  final Map<String, String> familyContacts = {
-    "dad": "08056710546", "father": "08056710546", "mum": "08055633348", "mother": "08055633348",
-    "sister": "2347086930269", "sis": "2347086930269", "bro": "2349122362006", "brother": "2349122362006",
-  };
-
-  static const starting = ["We outside Boss", "Say no more", "I got you", "On God", "No stress", "Locked in Boss"];
-  static const greetings = ["Welcome back Boss", "Hey man", "Hey buddy", "Wazup Boss", "Yes Boss, I dey here"];
-  static const encouraging = ["You got this Boss", "God's got you Boss", "We move Boss"];
-  static const jokes = ["Why did the AI go to therapy? Too many bytes.", "What do you call a robot that does laundry? A washine."];
-
-  final List<String> myGreetings = ["hey dave", "yo dave", "daveeee", "yo man", "hey man", "hello", "hi", "good morning"];
-  final List<String> myCheckins = ["how are you", "you good", "how's it going", "you dey alright"];
-
+  final String modelFileName = "tinyllama.gguf";
+  final Map<String, String> familyContacts = {"dad": "08056710546", "father": "08056710546", "mum": "08055633348", "mother": "08055633348", "sister": "2347086930269", "sis": "2347086930269", "bro": "2349122362006", "brother": "2349122362006"};
+  static const starting = ["We outside Boss", "Say no more", "I got you", "On God"];
+  static const greetings = ["Welcome back Boss", "Hey man", "Wazup Boss"];
+  static const jokes = ["Why did the AI go to therapy? Too many bytes."];
+  final List<String> myGreetings = ["hey dave", "yo dave", "hello", "hi"];
   String pick(List<String> bank) => bank[_rand.nextInt(bank.length)];
   bool get catchPhrasesOn => settingsBox.get('catchPhrases_on', defaultValue: true) as bool;
   String withCatchphrase(String base, [List<String> bank = starting]) => catchPhrasesOn? "${pick(bank)} $base" : base;
 
   Future<String> chat(String message) async {
     recordActivity();
-    if(!_llmReady) return "Brain still loading Boss, wait 10 seconds";
-    
+    if(!_llmReady) return "Brain still downloading Boss, wait 2 minutes on wifi";
     String? actionResult = await _handleActions(message);
     if(actionResult!= null) return actionResult;
-    
     String systemPrompt = "User: $message\nAssistant:";
     try {
       String response = await _llama!.prompt(systemPrompt);
@@ -108,11 +82,12 @@ class DaveService {
       final modelPath = "${dir.path}/$modelFileName";
       final modelFile = File(modelPath);
       if (!await modelFile.exists()) {
-        await speak("Downloading AI brain. 669MB. Please use wifi");
+        await speak("Downloading AI brain. 669MB. Please use wifi Boss");
         final dio = Dio();
         await dio.download(modelUrl, modelPath);
+        await speak("Download complete Boss. Loading brain");
       }
-      _llama = LlamaFlutter();
+      _llama = FlutterLlama();
       await _llama!.loadModel(modelPath);
       _llmReady = true;
       await speak("Brain online Boss");
@@ -152,32 +127,17 @@ class DaveService {
         return "Calling $name";
       }
     }
-    if(text.contains("whatsapp")) {
-      RegExp numberReg = RegExp(r'(\+?234\d{10}|0\d{10})');
-      var match = numberReg.firstMatch(text);
-      if(match!= null) {
-        String number = match.group(0)!;
-        String cleanNumber = number.startsWith("0")? "234${number.substring(1)}" : number.replaceAll("+", "");
-        await speak("Opening WhatsApp Boss");
-        await launchUrl(Uri.parse("https://wa.me/$cleanNumber"));
-        return "Opening WhatsApp";
-      }
-    }
     return null;
   }
-
   Future<void> speak(String text) async { await tts.stop(); await tts.speak(text); }
   void recordActivity() => settingsBox.put('last_activity', DateTime.now().toIso8601String());
-  
   String getResponse(String rawInput) {
     final input = rawInput.toLowerCase().trim();
     if (myGreetings.any((g) => input.contains(g))) return withCatchphrase(pick(greetings));
-    if (myCheckins.any((c) => input.contains(c))) return withCatchphrase("I'm solid Boss, just waiting on you");
     if (input.contains("time")) return withCatchphrase("It's ${DateFormat('h:mm a').format(DateTime.now())}, Boss.");
     if (input.contains("joke")) return withCatchphrase(pick(jokes));
-    return withCatchphrase("I hear you Master $masterName. Wetin you want me do?");
+    return withCatchphrase("I hear you Master $masterName");
   }
-
   Future<String> buildMorningBriefing() async => "Good morning Master $masterName. Battery: ${await battery.batteryLevel}%. Let's go get it.";
   Future<String> buildNightBriefing() async => "Good night Master $masterName. Battery: ${await battery.batteryLevel}%. Rest now.";
   Future<void> scheduleBriefings() async => await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
