@@ -9,11 +9,9 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  
-  # AI BRAIN
-  llama_flutter:
-    git:
-      url: https://github.com/fzyzcjy/flutter_llama
+
+  # AI BRAIN - THIS ONE CAN AUTO DOWNLOAD
+  flutter_llama: ^0.0.6
 
   # CORE PACKAGES
   battery_plus: ^5.0.2
@@ -30,7 +28,6 @@ dependencies:
   flutter_phone_direct_caller: ^3.0.2
   flutter_animate: ^4.5.0
   permission_handler: ^11.3.1
-  webview_flutter: ^4.7.0
 
 dev_dependencies:
   flutter_test:
