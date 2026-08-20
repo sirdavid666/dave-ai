@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle; // ADDED THIS
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -6,6 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:path_provider/path_provider.dart'; // ADDED THIS
 import 'dart:io';
 
 import 'dave_service.dart';
@@ -89,10 +91,10 @@ class _DaveHomePageState extends State<DaveHomePage> {
   }
 
   Future<void> _prepareBrain() async {
-    final dir = await getApplicationDocumentsDirectory();
+    final dir = await getApplicationDocumentsDirectory(); // NOW WORKS
     final file = File('${dir.path}/index.html');
     if (!await file.exists()) {
-      final data = await rootBundle.loadString('assets/index.html');
+      final data = await rootBundle.loadString('assets/index.html'); // NOW WORKS
       await file.writeAsString(data.replaceAll("Master", "Master $MASTER_NAME"));
     }
     _controller = WebViewController()
@@ -113,7 +115,7 @@ class _DaveHomePageState extends State<DaveHomePage> {
       ),
       body: Stack(
         children: [
-          const StarField(), // SCI-FI BACKGROUND
+          const StarField(),
           _buildBody(),
         ],
       ),
@@ -145,7 +147,6 @@ class _DaveHomePageState extends State<DaveHomePage> {
   }
 }
 
-// VOICE TAB WITH PULSE + WEBVIEW
 class VoiceTab extends StatefulWidget {
   final WebViewController controller;
   final bool brainReady;
@@ -197,7 +198,6 @@ class _VoiceTabState extends State<VoiceTab> {
   }
 }
 
-// MOVING STARS BACKGROUND
 class StarField extends StatefulWidget {
   const StarField({super.key});
   @override
