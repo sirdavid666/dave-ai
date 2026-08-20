@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle; // ADDED THIS
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -7,7 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:intl/intl.dart';
 import 'package:webview_flutter/webview_flutter.dart';
-import 'package:path_provider/path_provider.dart'; // ADDED THIS
+import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 
 import 'dave_service.dart';
@@ -91,10 +91,10 @@ class _DaveHomePageState extends State<DaveHomePage> {
   }
 
   Future<void> _prepareBrain() async {
-    final dir = await getApplicationDocumentsDirectory(); // NOW WORKS
+    final dir = await getApplicationDocumentsDirectory();
     final file = File('${dir.path}/index.html');
     if (!await file.exists()) {
-      final data = await rootBundle.loadString('assets/index.html'); // NOW WORKS
+      final data = await rootBundle.loadString('assets/index.html');
       await file.writeAsString(data.replaceAll("Master", "Master $MASTER_NAME"));
     }
     _controller = WebViewController()
@@ -161,39 +161,46 @@ class _VoiceTabState extends State<VoiceTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        if (widget.brainReady) WebViewWidget(controller: widget.controller),
-        Positioned(
-          bottom: 100,
-          child: Column(
-            children: [
-              GestureDetector(
-                onTap: () {
-                  widget.controller.runJavaScript('if(typeof rec !== "undefined") rec.start();');
-                  setState(() => _isListening = true);
-                  Future.delayed(const Duration(seconds: 5), () => setState(() => _isListening = false));
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(25),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle, 
-                    color: _isListening ? Colors.red : const Color(0xFF00ff88),
-                    boxShadow: [BoxShadow(color: const Color(0xFF00ff88), blurRadius: 40, spreadRadius: _isListening ? 20 : 5)]
-                  ),
-                  child: const Icon(Icons.mic, size: 50, color: Colors.black),
-                ).animate(target: _isListening ? 1 : 0).scale(duration: 600.ms).then().scale(duration: 600.ms),
-              ),
-              const SizedBox(height: 20),
-              Text(
-                widget.brainReady ? "TAP TO TALK, MASTER $MASTER_NAME" : "BOOTING BRAIN...",
-                style: const TextStyle(color: Colors.white, fontSize: 16, letterSpacing: 1.2),
-              )
-            ],
+    return SafeArea(
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 10, bottom: 150),
+            child: widget.brainReady 
+              ? WebViewWidget(controller: widget.controller)
+              : const Center(child: CircularProgressIndicator(color: Color(0xFF00FF88))),
           ),
-        )
-      ],
+          Positioned(
+            bottom: 100,
+            child: Column(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    widget.controller.runJavaScript('if(typeof rec !== "undefined") rec.start();');
+                    setState(() => _isListening = true);
+                    Future.delayed(const Duration(seconds: 5), () => setState(() => _isListening = false));
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(25),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle, 
+                      color: _isListening ? Colors.red : const Color(0xFF00ff88),
+                      boxShadow: [BoxShadow(color: const Color(0xFF00ff88), blurRadius: 40, spreadRadius: _isListening ? 20 : 5)]
+                    ),
+                    child: const Icon(Icons.mic, size: 50, color: Colors.black),
+                  ).animate(target: _isListening ? 1 : 0).scale(duration: 600.ms).then().scale(duration: 600.ms),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  widget.brainReady ? "TAP TO TALK, MASTER $MASTER_NAME" : "BOOTING BRAIN...",
+                  style: const TextStyle(color: Colors.white, fontSize: 16, letterSpacing: 1.2),
+                )
+              ],
+            ),
+          )
+        ],
+      ),
     );
   }
 }
