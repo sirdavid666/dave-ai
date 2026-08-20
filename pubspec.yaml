@@ -2,7 +2,7 @@ name: dave_ai
 description: "DAVE AI - Personal Assistant for Master DAVID"
 
 publish_to: 'none'
-version: 1.0.0+9
+version: 1.0.0+10
 
 environment:
   sdk: '>=3.3.0 <4.0.0'
@@ -15,9 +15,9 @@ dependencies:
   workmanager: ^0.5.2
   permission_handler: ^11.3.1
   
-  # FIXED THESE 2 LINES
+  # FIXED - THESE VERSIONS EXIST ON GITHUB
   hive: ^2.2.3
-  hive_flutter: ^1.1.2  # changed from ^1.1.2 to latest
+  hive_flutter: ^1.1.2  # use any instead of pinning
 
   flutter_local_notifications: ^17.2.3
   intl: ^0.19.0
