@@ -38,7 +38,7 @@ void main() async {
   await DaveService.instance.init();
   await _initNotifications();
   await DaveService.instance.scheduleBriefings();
-  await [Permission.microphone, Permission.notification].request();
+  await [Permission.microphone, Permission.notification, Permission.storage].request();
   runApp(const DaveAIApp());
 }
 
@@ -84,7 +84,7 @@ class _SplashScreenState extends State<SplashScreen> {
             TextSpan(text: "AI", style: TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Color(0xFF00BFFF))),
           ])).animate().fade(duration: const Duration(milliseconds: 500)),
           const SizedBox(height: 10),
-          const Text("Loading Master $MASTER_NAME...", style: TextStyle(color: Colors.white70, fontSize: 16)).animate().fade(delay: const Duration(milliseconds: 500)),
+          const Text("Loading Master DAVID...", style: TextStyle(color: Colors.white70, fontSize: 16)).animate().fade(delay: const Duration(milliseconds: 500)),
         ])),
       ]),
     );
