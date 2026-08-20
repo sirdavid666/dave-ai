@@ -107,7 +107,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0xFF4A00E0).withOpacity(0.3)),
                   child: const Icon(Icons.smart_toy, size: 100, color: Color(0xFF00BFFF)),
-                ).animate().scale(duration: 1s).fade(),
+                ).animate().scale(duration: 1000s).fade(),
                 const SizedBox(height: 20),
                 RichText(
                   text: const TextSpan(
