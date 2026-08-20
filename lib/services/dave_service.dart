@@ -7,7 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_cpp_dart/llama_cpp_dart.dart'; // CERTAIN
+import 'package:llama_cpp_dart/llama_cpp_dart.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -43,7 +43,7 @@ class DaveService {
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
-  Llama? _llama; // CERTAIN
+  Llama? _llama;
   bool _llmReady = false;
   final Random _rand = Random();
   final String masterName = "DAVID";
@@ -65,11 +65,7 @@ class DaveService {
     if(actionResult!= null) return actionResult;
     try {
       final prompt = "User: $message\nAssistant:";
-      final response = await _llama!.createCompletion( // CERTAIN METHOD
-        prompt: prompt,
-        maxTokens: 200,
-        temperature: 0.7,
-      );
+      final response = await _llama!.createCompletion(prompt: prompt, maxTokens: 200);
       String result = response.text.trim();
       await speak(result);
       return result;
@@ -91,7 +87,8 @@ class DaveService {
         await dio.download(modelUrl, modelPath);
         await speak("Download complete Boss. Loading brain");
       }
-      _llama = Llama.fromFile(path: modelPath); // CERTAIN METHOD
+      _llama = Llama(); // V0.0.9
+      await _llama!.init(modelPath: modelPath); // V0.0.9
       _llmReady = true;
       await speak("Brain online Boss");
     } catch (e) {
