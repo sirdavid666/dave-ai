@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'package:battery_plus/battery_plus.dart';
@@ -7,12 +8,17 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_flutter_android/llama_flutter_android.dart'; // FIXED
+import 'package:llama_flutter_android/llama_flutter_android.dart'; 
+import 'package:whisper_ggml/whisper_ggml.dart';
+import 'package:record/record.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
+import 'package:flutter/foundation.dart';
+import '../main.dart';
 
+const String GITHUB_BASE = "https://github.com/sirdavid666/DAVE/releases/download/v0.1.0/";
 const String morningTask = "morningBriefing";
 const String nightTask = "nightBriefing";
 
@@ -21,7 +27,7 @@ void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     await Hive.initFlutter();
     final DaveService dave = DaveService.instance;
-    await dave.init();
+    await dave.initBackground();
     if (task == morningTask) {
       String briefing = await dave.buildMorningBriefing();
       await dave.speak(briefing);
@@ -43,20 +49,28 @@ class DaveService {
   final FlutterTts tts = FlutterTts();
   final Battery battery = Battery();
   final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
+  final WhisperController _whisper = WhisperController();
+  final LlamaController _llama = LlamaController();
+  final AudioRecorder _recorder = AudioRecorder();
+  final Dio _dio = Dio();
+
   late Box conversationsBox;
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
 
+  WhisperLiveSession? _wakeSession;
+  StreamSubscription<String>? _wakeSubscription;
+  StreamSubscription<String>? _llamaSubscription;
+  String? _whisperModelPath;
+  String? _llamaModelPath;
+
   bool _llmReady = false;
+  bool _wakeListening = false;
+  bool _isSpeaking = false;
   final Random _rand = Random();
-  final String masterName = "DAVID";
 
-  // TINYLLAMA 669MB MODEL FROM YOUR GITHUB RELEASE
-  final String modelUrl = "https://github.com/sirdavid666/dave-ai/releases/download/v1.0-brain/tinyllama.gguf";
-  final String modelFileName = "tinyllama.gguf";
-
-  // FAMILY CONTACTS - YOUR REAL NUMBERS
+  // YOUR FAMILY CONTACTS
   final Map<String, String> familyContacts = {
     "dad": "08056710546", "father": "08056710546", "daddy": "08056710546",
     "mum": "08055633348", "mother": "08055633348", "mummy": "08055633348",
@@ -70,18 +84,25 @@ class DaveService {
   static const jokes = ["Why did the AI go to therapy? Too many bytes.", "I told my computer I needed a break, it said no, it has no cache"];
   final List<String> myGreetings = ["hey dave", "yo dave", "hello", "hi", "dave"];
 
+  ValueNotifier<String> status = ValueNotifier("Starting DAVE...");
+  ValueNotifier<String> transcript = ValueNotifier("");
+  ValueNotifier<String> response = ValueNotifier("");
+
   String pick(List<String> bank) => bank[_rand.nextInt(bank.length)];
   bool get catchPhrasesOn => settingsBox.get('catchPhrases_on', defaultValue: true) as bool;
   String withCatchphrase(String base, [List<String> bank = starting]) => catchPhrasesOn? "${pick(bank)} $base" : base;
 
-  Future<void> init() async {
+  // FOR BACKGROUND TASKS
+  Future<void> initBackground() async {
     await Hive.initFlutter();
     conversationsBox = await Hive.openBox('conversations');
     userDataBox = await Hive.openBox('user_data');
     tasksBox = await Hive.openBox('tasks');
     settingsBox = await Hive.openBox('settings');
-    if (userDataBox.get('name') == null) userDataBox.put('name', masterName);
+  }
 
+  Future<void> init() async {
+    await initBackground();
     tzdata.initializeTimeZones();
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
@@ -90,69 +111,157 @@ class DaveService {
     await tts.setLanguage("en-US");
     await tts.setSpeechRate(0.48);
     await tts.setPitch(1.0);
+    await tts.setVolume(1.0);
+
+    tts.setCompletionHandler(() {
+      _isSpeaking = false;
+      startWakeWordListener();
+    });
 
     recordActivity();
-    await _initLLM();
+    await _initModels();
     await scheduleBriefings();
   }
 
-  // 1. TINYLLAMA BRAIN - FIXED FOR ANDROID
-  Future<void> _initLLM() async {
-    try {
-      final dir = await getApplicationDocumentsDirectory();
-      final modelPath = "${dir.path}/$modelFileName";
-      final modelFile = File(modelPath);
+  // DOWNLOAD AND COMBINE ALL 39 PARTS FROM GITHUB
+  Future<String> _downloadAndCombineModel(String baseName, int parts, String extension) async {
+    final directory = await getApplicationSupportDirectory();
+    final modelsDirectory = Directory('${directory.path}/models');
+    if (!await modelsDirectory.exists()) await modelsDirectory.create(recursive: true);
+    finalPath = '${modelsDirectory.path}/$baseName.$extension';
+    final finalFile = File(finalPath);
+    if (await finalFile.exists()) return finalPath;
 
-      if (!await modelFile.exists()) {
-        await speak("Downloading AI brain. 669MB. Please use wifi Boss");
-        final dio = Dio();
-        await dio.download(modelUrl, modelPath, onReceiveProgress: (rec, total) {
-          if(total > 0) print("Download: ${(rec/total*100).toStringAsFixed(0)}%");
-        });
-        await speak("Download complete Boss. Loading brain");
+    List<File> partFiles = [];
+    for(int i = 1; i <= parts; i++) {
+      String partName = '${baseName}-${i.toString().padLeft(3, '0')}.$extension';
+      String partUrl = '$GITHUB_BASE$partName';
+      String partPath = '${modelsDirectory.path}/$partName';
+      partFiles.add(File(partPath));
+      if(!await File(partPath).exists()) {
+        status.value = "Downloading $partName...";
+        await _dio.download(partUrl, partPath);
       }
+    }
 
-      await LlamaFlutterAndroid.loadModel(modelPath); // FIXED
+    status.value = "Combining $baseName...";
+    final sink = finalFile.openWrite();
+    for(File part in partFiles) { await sink.addStream(part.openRead()); }
+    await sink.close();
+    return finalPath;
+  }
+
+  Future<void> _initModels() async {
+    try {
+      status.value = "Checking/Downloading Models...";
+      _llamaModelPath = await _downloadAndCombineModel('tinyllama', 32, 'gguf');
+      _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin');
+
+      status.value = "Loading AI Brain...";
+      await _llama.loadModel(modelPath: _llamaModelPath!, threads: 4, contextSize: 2048);
       _llmReady = true;
+      status.value = 'DAVE AI ready — say "Hey DAVE"';
       await speak("Brain online Boss");
+      await startWakeWordListener();
     } catch (e) {
       _llmReady = false;
+      status.value = "Brain failed: $e";
       await speak("Brain failed to load Boss. Using offline mode");
-      print("LLM Error: $e");
+      debugPrint("LLM Error: $e");
     }
   }
 
-  // 2. CHAT + ACTIONS
+  // JARVIS MODE: LISTEN FOR "HEY DAVE"
+  Future<void> startWakeWordListener() async {
+    if (!_llmReady || _wakeListening || _isSpeaking) return;
+    final hasPermission = await _recorder.hasPermission();
+    if (!hasPermission) { status.value = "Microphone permission needed"; return; }
+
+    final Stream<Uint8List> pcmStream = await _recorder.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1));
+    final session = await _whisper.transcribeLive(modelPath: _whisperModelPath!, pcm16Stream: pcmStream, lang: 'en', initialPrompt: 'Hey DAVE. DAVE.', suppressNonSpeechTokens: true);
+    _wakeSession = session;
+    _wakeListening = true;
+    status.value = 'Listening for "Hey DAVE"...';
+    _wakeSubscription = session.partials.listen((text) {
+      if (text.toLowerCase().contains('hey dave')) { activateAssistant(); }
+    });
+  }
+
+  Future<void> activateAssistant() async {
+    await _stopWakeListener();
+    status.value = "DAVE is listening...";
+    transcript.value = "";
+    response.value = "";
+    await speak('Yes, Master $MASTER_NAME.');
+    final command = await _captureCommand();
+    if (command == null || command.isEmpty) { 
+      await speak('I did not hear a command.'); 
+      return; 
+    }
+    await chat(command);
+  }
+
+  Future<void> _stopWakeListener() async {
+    await _wakeSubscription?.cancel(); _wakeSubscription = null;
+    if (_wakeListening) { try { await _recorder.stop(); } catch (_) {} }
+    try { await _wakeSession?.stop(); } catch (_) {}
+    _wakeSession = null; _wakeListening = false;
+  }
+
+  Future<String?> _captureCommand() async {
+    final Stream<Uint8List> pcmStream = await _recorder.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1));
+    final session = await _whisper.transcribeLive(modelPath: _whisperModelPath!, pcm16Stream: pcmStream, lang: 'en', suppressNonSpeechTokens: true);
+    String latestText = '';
+    final subscription = session.partials.listen((text) { latestText = text; transcript.value = text; });
+    await Future.delayed(const Duration(seconds: 5));
+    try { await _recorder.stop(); } catch (_) {}
+    finalText = await session.stop();
+    await subscription.cancel();
+    return finalText.isNotEmpty ? finalText : latestText;
+  }
+
+  // YOUR CHAT + ACTIONS FUNCTION
   Future<String> chat(String message) async {
     recordActivity();
+    transcript.value = message;
 
     String? actionResult = await _handleActions(message);
     if(actionResult!= null) {
-      await speak(actionResult);
+      response.value = actionResult;
       return actionResult;
     }
 
     if(!_llmReady) {
       String fallback = getResponse(message);
       await speak(fallback);
+      response.value = fallback;
       return fallback;
     }
 
     try {
-      final prompt = "User: $message\nAssistant:";
-      final response = await LlamaFlutterAndroid.prompt(prompt); // FIXED
-      String result = response.trim();
-      await speak(result);
+      status.value = "Thinking offline...";
+      final buffer = StringBuffer();
+      final prompt = 'You are DAVE AI, voice assistant of Master $MASTER_NAME. Be concise, natural, friendly. Reply in 1-2 sentences. Offline only. User: $message\nAssistant:';
+      
+      _llamaSubscription = _llama.generate(prompt: prompt, maxTokens: 150, temperature: 0.7).listen((token) {
+        buffer.write(token); response.value = buffer.toString();
+      });
+      await _llamaSubscription!.asFuture<void>();
+      
+      String result = buffer.toString().trim();
       _saveConversation(message, result);
+      await speak(result);
+      status.value = 'Ready — say "Hey DAVE"';
       return result;
     } catch (e) {
       String fallback = getResponse(message);
       await speak(fallback);
+      response.value = fallback;
       return fallback;
     }
   }
 
-  // 3. CALL + WHATSAPP HANDLER
+  // YOUR CALL + WHATSAPP HANDLER
   Future<String?> _handleActions(String text) async {
     String lower = text.toLowerCase();
     for (String name in familyContacts.keys) {
@@ -180,6 +289,9 @@ class DaveService {
   }
 
   Future<void> speak(String text) async {
+    if (text.isEmpty) return;
+    _isSpeaking = true;
+    status.value = "DAVE is speaking...";
     await tts.stop();
     await tts.speak(text);
   }
@@ -215,5 +327,13 @@ class DaveService {
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
     await Workmanager().registerPeriodicTask(morningTask, morningTask, frequency: const Duration(hours: 24));
     await Workmanager().registerPeriodicTask(nightTask, nightTask, frequency: const Duration(hours: 24));
+  }
+
+  void dispose() {
+    _wakeSubscription?.cancel();
+    _llamaSubscription?.cancel();
+    _recorder.dispose();
+    tts.stop();
+    _llama.dispose();
   }
 }
