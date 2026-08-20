@@ -22,7 +22,7 @@ dependencies:
   speech_to_text: ^6.6.2
 
   # TINYLLAMA BRAIN
-  flutter_gpt_llama: ^0.0.4
+  llama_flutter: ^0.1.2
   dio: ^5.4.3
 
   # PROACTIVE + NOTIFICATIONS
