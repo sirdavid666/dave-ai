@@ -1,14 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:webview_flutter/webview_flutter.dart';
-import 'package:path_provider/path_provider.dart';
-import 'dart:io';
-import 'dart:math';
 import 'services/dave_service.dart';
 
 const String morningTask = "morningBriefing";
@@ -39,15 +34,7 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter();
-  
-  // FIXED: Open boxes with timeout
-  await Future.wait([
-    Hive.openBox('conversations'),
-    Hive.openBox('user_data'),
-    Hive.openBox('tasks'),
-    Hive.openBox('settings'),
-  ]).timeout(const Duration(seconds: 5), onTimeout: () => []);
-  
+  await Future.wait([Hive.openBox('conversations'), Hive.openBox('user_data'), Hive.openBox('tasks'), Hive.openBox('settings')]).timeout(const Duration(seconds: 5), onTimeout: () => []);
   await DaveService.instance.init();
   await _initNotifications();
   await DaveService.instance.scheduleBriefings();
@@ -78,7 +65,6 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-    // FIXED: Only 2 seconds splash now
     Future.delayed(const Duration(seconds: 2), () {
       Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
     });
@@ -105,4 +91,63 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-// ... rest of your ChatScreen, GalaxyBackground code is same as last one
+class GalaxyBackground extends StatelessWidget {
+  const GalaxyBackground({super.key});
+  @override
+  Widget build(BuildContext context) {
+    return Container(decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF0F0C29), Color(0xFF302B63), Color(0xFF24243e)], begin: Alignment.topLeft, end: Alignment.bottomRight)));
+  }
+}
+
+class ChatScreen extends StatefulWidget {
+  const ChatScreen({super.key});
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
+  final TextEditingController _controller = TextEditingController();
+  final List<Map<String, String>> _messages = [];
+  bool _isLoading = false;
+
+  void _sendMessage() async {
+    if (_controller.text.isEmpty) return;
+    setState(() { _messages.add({"role": "user", "text": _controller.text}); _isLoading = true; });
+    String userMsg = _controller.text;
+    _controller.clear();
+    String response = await DaveService.instance.chat(userMsg);
+    setState(() { _messages.add({"role": "assistant", "text": response}); _isLoading = false; });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(children: [
+        const GalaxyBackground(),
+        Column(children: [
+          Expanded(child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: _messages.length,
+            itemBuilder: (context, index) {
+              final msg = _messages[index];
+              bool isUser = msg["role"] == "user";
+              return Align(alignment: isUser? Alignment.centerRight : Alignment.centerLeft,
+                child: Container(margin: const EdgeInsets.symmetric(vertical: 4), padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: isUser? const Color(0xFF4A00E0) : const Color(0xFF00BFFF), borderRadius: BorderRadius.circular(12)),
+                  child: Text(msg["text"]!, style: const TextStyle(color: Colors.white)),
+                ),
+              );
+            },
+          )),
+          if(_isLoading) const Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator(color: Color(0xFF00BFFF))),
+          Padding(padding: const EdgeInsets.all(8.0),
+            child: Row(children: [
+              Expanded(child: TextField(controller: _controller, style: const TextStyle(color: Colors.white), decoration: InputDecoration(hintText: "Talk to DAVE...", hintStyle: const TextStyle(color: Colors.white54), filled: true, fillColor: Colors.black26, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)))),),
+              IconButton(icon: const Icon(Icons.send, color: Color(0xFF00BFFF)), onPressed: _sendMessage)
+            ]),
+          )
+        ]),
+      ]),
+    );
+  }
+}
