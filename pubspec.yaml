@@ -9,35 +9,22 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-  # Offline AI
-  whisper_ggml: ^2.6.0
-  llama_flutter_android: ^0.2.6
-
-  # Offline device TTS
-  flutter_tts: ^4.2.3
-
-  # Microphone PCM streaming
-  record: ^5.2.1
-
-  # Download + Storage
-  dio: ^5.4.0
-  path_provider: ^2.1.3
-  intl: ^0.18.1
-
-  # Local storage
+  
+  # YOUR PACKAGES
+  flutter_animate: ^4.5.0
+  workmanager: ^0.5.2
+  permission_handler: ^11.3.1
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-
-  # Background work
-  workmanager: ^0.5.2
-
-  # Device information
-  battery_plus: ^6.0.0
-
-  # Local notifications
   flutter_local_notifications: ^18.0.1
-  timezone: ^0.9.4
+
+  # AI PACKAGES
+  whisper_ggml: ^2.6.0
+  llama_flutter_android: ^0.2.6
+  flutter_tts: ^4.2.3
+  record: ^5.2.1
+  dio: ^5.4.0
+  path_provider: ^2.1.3
 
 dev_dependencies:
   flutter_test:
