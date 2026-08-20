@@ -8,9 +8,9 @@ import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_flutter_android/llama_flutter_android.dart'; // FIXED
-import 'package:dio/dio.dart'; // FOR DOWNLOADING MODEL
-import 'package:path_provider/path_provider.dart'; // TO GET FILE PATH
+import 'package:llama_flutter/llama_flutter.dart';
+import 'package:dio/dio.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 
@@ -21,24 +21,8 @@ class DaveTask {
   bool done;
 
   DaveTask({required this.id, required this.title, this.dueTime, this.done = false});
-
-  Map<String, dynamic> toMap() {
-    return {
-      'id': id,
-      'title': title,
-      'dueTime': dueTime?.toIso8601String(),
-      'done': done,
-    };
-  }
-
-  factory DaveTask.fromMap(Map map) {
-    return DaveTask(
-      id: map['id'],
-      title: map['title'],
-      dueTime: map['dueTime'] != null ? DateTime.parse(map['dueTime']) : null,
-      done: map['done'] ?? false,
-    );
-  }
+  Map<String, dynamic> toMap() => {'id': id, 'title': title, 'dueTime': dueTime?.toIso8601String(), 'done': done};
+  factory DaveTask.fromMap(Map map) => DaveTask(id: map['id'], title: map['title'], dueTime: map['dueTime']!= null? DateTime.parse(map['dueTime']) : null, done: map['done']?? false);
 }
 
 @pragma('vm:entry-point')
@@ -47,22 +31,15 @@ void callbackDispatcher() {
     await Hive.initFlutter();
     final DaveService dave = DaveService.instance;
     await dave.init();
-
     if (task == "morningBriefing") {
       String briefing = await dave.buildMorningBriefing();
       await dave.speak(briefing);
-      await dave.notifications.show(
-        1, "🌅 DAVE AI Morning", briefing,
-        const NotificationDetails(android: AndroidNotificationDetails('morning_channel', 'Morning Briefing', importance: Importance.max))
-      );
+      await dave.notifications.show(1, "🌅 DAVE AI Morning", briefing, const NotificationDetails(android: AndroidNotificationDetails('morning_channel', 'Morning Briefing', importance: Importance.max)));
     }
     if (task == "nightBriefing") {
       String briefing = await dave.buildNightBriefing();
       await dave.speak(briefing);
-      await dave.notifications.show(
-        2, "🌙 DAVE AI Night", briefing,
-        const NotificationDetails(android: AndroidNotificationDetails('night_channel', 'Night Briefing', importance: Importance.max))
-      );
+      await dave.notifications.show(2, "🌙 DAVE AI Night", briefing, const NotificationDetails(android: AndroidNotificationDetails('night_channel', 'Night Briefing', importance: Importance.max)));
     }
     return Future.value(true);
   });
@@ -80,76 +57,41 @@ class DaveService {
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
-  LlamaFlutterAndroid? _llama; // FIXED
+  LlamaFlutter? _llama;
   bool _llmReady = false;
 
   final Random _rand = Random();
   final String masterName = "DAVID";
-
-  // MODEL INFO
   final String modelUrl = "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
   final String modelFileName = "tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf";
 
-  // ===== ONLY FOR CALLING =====
   final Map<String, String> familyContacts = {
-    "dad": "08056710546",
-    "father": "08056710546",
-    "mum": "08055633348",
-    "mother": "08055633348",
-    "sister": "2347086930269",
-    "sis": "2347086930269",
-    "bro": "2349122362006",
-    "brother": "2349122362006",
+    "dad": "08056710546", "father": "08056710546", "mum": "08055633348", "mother": "08055633348",
+    "sister": "2347086930269", "sis": "2347086930269", "bro": "2349122362006", "brother": "2349122362006",
   };
-  // ============================
 
-  static const starting = [
-    "We outside Boss", "Say no more", "I got you", "On God", 
-    "No stress", "Locked in Boss", "On it Boss", "Consider it done Boss"
-  ];
-  static const greetings = [
-    "Welcome back Boss", "Hey man", "Hey buddy", "Wazup Boss", "Yes Boss, I dey here"
-  ];
+  static const starting = ["We outside Boss", "Say no more", "I got you", "On God", "No stress", "Locked in Boss"];
+  static const greetings = ["Welcome back Boss", "Hey man", "Hey buddy", "Wazup Boss", "Yes Boss, I dey here"];
   static const encouraging = ["You got this Boss", "God's got you Boss", "We move Boss"];
-  static const done = ["All set Boss", "Job complete Boss"];
-  static const jokes = [
-    "Why did the AI go to therapy? Too many bytes.",
-    "I told my computer I needed a break, now it won't stop sending me KitKats.",
-    "What do you call a robot that does laundry? A washine."
-  ];
+  static const jokes = ["Why did the AI go to therapy? Too many bytes.", "What do you call a robot that does laundry? A washine."];
 
-  final List<String> myGreetings = [
-    "hey dave", "yo dave", "daveeee", "yo man", "hey man", "hey buddy",
-    "what's up dude", "whats up dude", "what's up man", "wazup", "wazzup",
-    "good morning", "good afternoon", "good evening", "you there", "you dey", "hello", "hi"
-  ];
-  final List<String> myCheckins = [
-    "how are you", "you good", "you good?", "how buddy", "how's it going", 
-    "how is it going", "everything cool", "you dey alright", "you ok"
-  ];
+  final List<String> myGreetings = ["hey dave", "yo dave", "daveeee", "yo man", "hey man", "hello", "hi", "good morning"];
+  final List<String> myCheckins = ["how are you", "you good", "how's it going", "you dey alright"];
 
   String pick(List<String> bank) => bank[_rand.nextInt(bank.length)];
   bool get catchPhrasesOn => settingsBox.get('catchPhrases_on', defaultValue: true) as bool;
-  
-  String withCatchphrase(String base, [List<String> bank = starting]) {
-    if (!catchPhrasesOn) return base;
-    return "${pick(bank)} $base";
-  }
+  String withCatchphrase(String base, [List<String> bank = starting]) => catchPhrasesOn? "${pick(bank)} $base" : base;
 
   Future<String> chat(String message) async {
     recordActivity();
-    if(!_llmReady) {
-      return "Brain still loading Boss, wait 10 seconds";
-    }
+    if(!_llmReady) return "Brain still loading Boss, wait 10 seconds";
     
-    // HANDLE ACTIONS FIRST
     String? actionResult = await _handleActions(message);
-    if(actionResult != null) return actionResult;
+    if(actionResult!= null) return actionResult;
     
-    String systemPrompt = "User: $message\nAssistant:"; // FIXED PROMPT FOR LLAMA
-    
+    String systemPrompt = "User: $message\nAssistant:";
     try {
-      String response = await _llama!.prompt(systemPrompt); // FIXED
+      String response = await _llama!.prompt(systemPrompt);
       response = response.replaceAll("Assistant:", "").trim();
       await speak(response);
       return response;
@@ -160,19 +102,17 @@ class DaveService {
     }
   }
 
-  Future<void> _initLLM() async { // NEW FUNCTION
+  Future<void> _initLLM() async {
     try {
       final dir = await getApplicationDocumentsDirectory();
       final modelPath = "${dir.path}/$modelFileName";
       final modelFile = File(modelPath);
-
       if (!await modelFile.exists()) {
         await speak("Downloading AI brain. 669MB. Please use wifi");
         final dio = Dio();
         await dio.download(modelUrl, modelPath);
       }
-
-      _llama = LlamaFlutterAndroid();
+      _llama = LlamaFlutter();
       await _llama!.loadModel(modelPath);
       _llmReady = true;
       await speak("Brain online Boss");
@@ -189,30 +129,21 @@ class DaveService {
     userDataBox = await Hive.openBox('user_data');
     tasksBox = await Hive.openBox('tasks');
     settingsBox = await Hive.openBox('settings');
-
-    if (userDataBox.get('name') == null) {
-      userDataBox.put('name', masterName);
-    }
-
+    if (userDataBox.get('name') == null) userDataBox.put('name', masterName);
     tzdata.initializeTimeZones();
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
     await notifications.initialize(initSettings);
-
     await tts.setLanguage("en-US");
     await tts.setSpeechRate(0.48);
     await tts.setPitch(1.0);
     recordActivity();
-
-    await _initLLM(); // FIXED: Call new function instead of LlmRunner
-
+    await _initLLM();
     await scheduleBriefings();
   }
 
   Future<String?> _handleActions(String text) async {
     text = text.toLowerCase();
-
-    // 1. CALLING - ONLY FAMILY
     for (String name in familyContacts.keys) {
       if(text.contains("call $name")) {
         String number = familyContacts[name]!;
@@ -221,191 +152,33 @@ class DaveService {
         return "Calling $name";
       }
     }
-
-    // 2. WHATSAPP - GENERAL FOR ANYONE WITH NUMBER
     if(text.contains("whatsapp")) {
       RegExp numberReg = RegExp(r'(\+?234\d{10}|0\d{10})');
       var match = numberReg.firstMatch(text);
-      if(match != null) {
+      if(match!= null) {
         String number = match.group(0)!;
-        String cleanNumber = number.startsWith("0") ? "234${number.substring(1)}" : number.replaceAll("+", "");
+        String cleanNumber = number.startsWith("0")? "234${number.substring(1)}" : number.replaceAll("+", "");
         await speak("Opening WhatsApp Boss");
         await launchUrl(Uri.parse("https://wa.me/$cleanNumber"));
         return "Opening WhatsApp";
-      } else {
-        await speak("What number should I WhatsApp Boss?");
-        return "Asking for number";
       }
     }
     return null;
   }
 
-  Future<void> speak(String text) async {
-    await tts.stop();
-    await tts.speak(text);
-  }
-
-  void recordActivity() {
-    settingsBox.put('last_activity', DateTime.now().toIso8601String());
-  }
-
-  bool get isAfterFourHours {
-    final lastStr = settingsBox.get('last_activity') as String?;
-    if (lastStr == null) return false;
-    final last = DateTime.parse(lastStr);
-    return DateTime.now().difference(last).inHours >= 4;
-  }
-
+  Future<void> speak(String text) async { await tts.stop(); await tts.speak(text); }
+  void recordActivity() => settingsBox.put('last_activity', DateTime.now().toIso8601String());
+  
   String getResponse(String rawInput) {
-    recordActivity();
     final input = rawInput.toLowerCase().trim();
-    if (input.isEmpty) return "I didn't catch that, Boss. Say again?";
-
-    final reminderMatch = RegExp(r'remind me to (.+) at (\d{1,2}):(\d{2})\s?(am|pm)?', caseSensitive: false).firstMatch(input);
-    if (reminderMatch != null) {
-      return _handleReminder(reminderMatch);
-    }
-
-    if (myGreetings.any((g) => input.contains(g))) {
-      return withCatchphrase(pick(greetings));
-    }
-
-    if (myCheckins.any((c) => input.contains(c))) {
-      List<String> replies = [
-        "I'm solid Boss, just waiting on you",
-        "I'm good man, battery dey low small but we move",
-        "I'm here for you Boss"
-      ];
-      return withCatchphrase(pick(replies));
-    }
-
-    if (input.contains("time")) {
-      return withCatchphrase("It's ${DateFormat('h:mm a').format(DateTime.now())}, Boss.");
-    }
-
-    if (input.contains("date") || input.contains("today")) {
-      return withCatchphrase("Today is ${DateFormat('EEEE, MMM d, y').format(DateTime.now())}.");
-    }
-
-    if (input.contains("battery")) {
-      return "Checking battery for you, Boss - see the live reading in Settings.";
-    }
-
-    if (input.contains("joke")) {
-      return withCatchphrase(pick(jokes));
-    }
-
-    if (input.contains("thank")) {
-      return "Anytime, Boss. That's what I'm here for.";
-    }
-
-    if (input.contains("tired") || input.contains("stressed") || input.contains("sad") || input.contains("down")) {
-      return "${pick(encouraging)} Take a breath - you've handled worse than this.";
-    }
-
-    if (input.contains("prayer")) {
-      final streak = userDataBox.get('prayer_streak', defaultValue: 0) as int;
-      return "Your current prayer streak is $streak days, Boss. ${pick(encouraging)}";
-    }
-
+    if (myGreetings.any((g) => input.contains(g))) return withCatchphrase(pick(greetings));
+    if (myCheckins.any((c) => input.contains(c))) return withCatchphrase("I'm solid Boss, just waiting on you");
+    if (input.contains("time")) return withCatchphrase("It's ${DateFormat('h:mm a').format(DateTime.now())}, Boss.");
+    if (input.contains("joke")) return withCatchphrase(pick(jokes));
     return withCatchphrase("I hear you Master $masterName. Wetin you want me do?");
   }
 
-  String _handleReminder(RegExpMatch match) {
-    final taskTitle = match.group(1)!.trim();
-    final hourRaw = int.parse(match.group(2)!);
-    final minute = match.group(3) != null ? int.parse(match.group(3)!) : 0;
-    final meridium = match.group(4);
-
-    int hour = hourRaw;
-    if (meridium == 'pm' && hour < 12) hour += 12;
-    if (meridium == 'am' && hour == 12) hour = 0;
-
-    var due = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day, hour, minute);
-    if (due.isBefore(DateTime.now())) {
-      due = due.add(const Duration(days: 1));
-    }
-
-    final task = DaveTask(id: DateTime.now().millisecondsSinceEpoch.toString(), title: taskTitle, dueTime: due);
-    tasksBox.put(task.id, task.toMap());
-    _scheduleTaskNotification(task);
-
-    final timeStr = DateFormat('h:mm a').format(due);
-    return withCatchphrase("I'll remind you to $taskTitle at $timeStr.");
-  }
-
-  Future<void> _scheduleTaskNotification(DaveTask task) async {
-    if (task.dueTime == null) return;
-    final scheduled = tz.TZDateTime.from(task.dueTime!, tz.local);
-    await notifications.zonedSchedule(
-      task.id.hashCode, "DAVE AI Reminder", task.title, scheduled,
-      const NotificationDetails(android: AndroidNotificationDetails('dave_reminders', 'Dave Reminders', channelDescription: 'Task and prayer reminders from Dave', importance: Importance.high, priority: Priority.high)),
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      matchDateTimeComponents: DateTimeComponents.time,
-      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
-    );
-  }
-
-  List<DaveTask> get allTasks => tasksBox.values.map((n) => DaveTask.fromMap(Map.from(n))).toList();
-  int get tasksTodayCount => allTasks.where((t) => t.dueTime != null && t.dueTime!.day == DateTime.now().day).length;
-  int get tasksDoneCount => allTasks.where((t) => t.done).length;
-
-  void toggleTaskDone(DaveTask task) {
-    task.done = !task.done;
-    tasksBox.put(task.id, task.toMap());
-  }
-
-  void deleteTask(DaveTask task) => tasksBox.delete(task.id);
-
-  Map<String, dynamic> get memoryFacts => Map<String, dynamic>.from(userDataBox.toMap());
-  void addMemoryFact(String key, String value) => userDataBox.put(key, value);
-  void deleteMemoryFact(String key) => userDataBox.delete(key);
-
-  Future<int> currentBatteryLevel() async => await battery.batteryLevel;
-
-  Future<String> buildMorningBriefing() async {
-    final level = await battery.batteryLevel;
-    final name = userDataBox.get('name', defaultValue: masterName) as String;
-    final time = DateFormat('h:mm a').format(DateTime.now());
-    return "Good morning Master $name. We outside. It's $time. Battery: $level%. Today we have ${tasksTodayCount} tasks. Let's go get it.";
-  }
-
-  Future<String> buildNightBriefing() async {
-    final level = await battery.batteryLevel;
-    final name = userDataBox.get('name', defaultValue: masterName) as String;
-    final time = DateFormat('h:mm a').format(DateTime.now());
-    return "Good night ${name.split(' ').first}. It's $time. Today we completed ${tasksDoneCount}/${tasksTodayCount} tasks. Not bad. Battery at $level%. Charge your phone. Proud of you Master $name. Rest now. Tomorrow we attack again.";
-  }
-
-  Future<void> scheduleBriefings() async {
-    await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
-    
-    bool morningOn = settingsBox.get('morningBriefing_on', defaultValue: true) as bool;
-    bool nightOn = settingsBox.get('nightBriefing_on', defaultValue: true) as bool;
-
-    if(morningOn) {
-      await Workmanager().registerPeriodicTask(
-        "morningBriefing", "morningBriefing",
-        frequency: const Duration(days: 1),
-        initialDelay: _timeUntil(7, 0),
-        constraints: Constraints(networkType: NetworkType.not_required),
-      );
-    }
-    
-    if(nightOn) {
-      await Workmanager().registerPeriodicTask(
-        "nightBriefing", "nightBriefing",
-        frequency: const Duration(days: 1),
-        initialDelay: _timeUntil(22, 0),
-        constraints: Constraints(networkType: NetworkType.not_required),
-      );
-    }
-  }
-
-  Duration _timeUntil(int hour, int minute) {
-    final now = DateTime.now();
-    var target = DateTime(now.year, now.month, now.day, hour, minute);
-    if (target.isBefore(now)) target = target.add(const Duration(days: 1));
-    return target.difference(now);
-  }
+  Future<String> buildMorningBriefing() async => "Good morning Master $masterName. Battery: ${await battery.batteryLevel}%. Let's go get it.";
+  Future<String> buildNightBriefing() async => "Good night Master $masterName. Battery: ${await battery.batteryLevel}%. Rest now.";
+  Future<void> scheduleBriefings() async => await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
 }
