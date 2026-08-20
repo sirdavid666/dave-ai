@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # CERTAIN AI PACKAGE - FIXED VERSION
-  llama_cpp_dart: ^0.0.9
+  # CERTAIN AI PACKAGE THAT BUILDS
+  flutter_gpt_llama: ^0.2.3
   
   # CORE PACKAGES
   battery_plus: ^5.0.2
