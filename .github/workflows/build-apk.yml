@@ -1,4 +1,5 @@
-name: Build APK
+name: Build DAVE AI APK
+
 on:
   push:
     branches: [ main ]
@@ -9,57 +10,21 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-
-    - uses: actions/setup-java@v4
-      with: { distribution: 'zulu', java-version: '17' }
-
-    - uses: subosito/flutter-action@v2
-      with: { flutter-version: '3.24.5', channel: 'stable', cache: false }
-
-    - run: flutter clean && rm -rf build ~/.pub-cache android/.gradle
-
-    - run: flutter pub get
-
-    - name: Generate missing Android resource files (icons + themes)
-      run: |
-        mkdir -p android/app/src/main/res/values
-        mkdir -p android/app/src/main/res/drawable
-        mkdir -p android/app/src/main/res/mipmap-mdpi
-        mkdir -p android/app/src/main/res/mipmap-hdpi
-        mkdir -p android/app/src/main/res/mipmap-xhdpi
-        mkdir -p android/app/src/main/res/mipmap-xxhdpi
-        mkdir -p android/app/src/main/res/mipmap-xxxhdpi
-
-        cat > android/app/src/main/res/values/styles.xml << 'EOF'
-        <?xml version="1.0" encoding="utf-8"?>
-        <resources>
-            <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
-                <item name="android:windowBackground">@drawable/launch_background</item>
-            </style>
-            <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
-                <item name="android:windowBackground">?android:colorBackground</item>
-            </style>
-        </resources>
-        EOF
-
-        cat > android/app/src/main/res/drawable/launch_background.xml << 'EOF'
-        <?xml version="1.0" encoding="utf-8"?>
-        <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-            <item android:drawable="@android:color/black" />
-        </layer-list>
-        EOF
-
-        sudo apt-get install -y imagemagick > /dev/null 2>&1 || true
-        convert -size 48x48 xc:"#4A90E2" android/app/src/main/res/mipmap-mdpi/ic_launcher.png
-        convert -size 72x72 xc:"#4A90E2" android/app/src/main/res/mipmap-hdpi/ic_launcher.png
-        convert -size 96x96 xc:"#4A90E2" android/app/src/main/res/mipmap-xhdpi/ic_launcher.png
-        convert -size 144x144 xc:"#4A90E2" android/app/src/main/res/mipmap-xxhdpi/ic_launcher.png
-        convert -size 192x192 xc:"#4A90E2" android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png
-
-        echo "--- Verifying res/ tree ---"
-        find android/app/src/main/res -type f
-
-    - run: flutter build apk --release
-
-    - uses: actions/upload-artifact@v4
-      with: { name: dave-ai-apk, path: build/app/outputs/flutter-apk/app-release.apk }
+    
+    - name: Set up JDK 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
+        
+    - name: Setup Android SDK
+      uses: android-actions/setup-android@v3
+      
+    - name: Build Debug APK
+      run: ./gradlew assembleDebug
+      
+    - name: Upload APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: DAVE-AI-debug
+        path: app/build/outputs/apk/debug/app-debug.apk
