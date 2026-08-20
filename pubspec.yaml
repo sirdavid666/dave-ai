@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # AI BRAIN - THIS ONE CAN AUTO DOWNLOAD
-  flutter_llama: ^0.0.6
+  # AI BRAIN - FIXED VERSION THAT EXISTS
+  flutter_llama: ^1.1.2
 
   # CORE PACKAGES
   battery_plus: ^5.0.2
