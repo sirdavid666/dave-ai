@@ -7,11 +7,10 @@ import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:workmanager/workmanager.dart';
-import 'package:llm_runner/llm_runner.dart'; // THE BRAIN
+import 'package:llm_runner/llm_runner.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
 
-// SIMPLE MODEL INSIDE SO WE DON'T NEED models/dave_models.dart
 class DaveTask {
   String id;
   String title;
@@ -39,7 +38,6 @@ class DaveTask {
   }
 }
 
-// TOP LEVEL FUNCTION FOR WORKMANAGER
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
@@ -79,12 +77,24 @@ class DaveService {
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
-  bool _llmReady = false; // TINYLLAMA STATUS
+  bool _llmReady = false;
 
   final Random _rand = Random();
   final String masterName = "DAVID";
 
-  // YOUR CATCHPHRASES
+  // ===== ONLY FOR CALLING =====
+  final Map<String, String> familyContacts = {
+    "dad": "08056710546",
+    "father": "08056710546",
+    "mum": "08055633348",
+    "mother": "08055633348",
+    "sister": "2347086930269",
+    "sis": "2347086930269",
+    "bro": "2349122362006",
+    "brother": "2349122362006",
+  };
+  // ============================
+
   static const starting = [
     "We outside Boss", "Say no more", "I got you", "On God", 
     "No stress", "Locked in Boss", "On it Boss", "Consider it done Boss"
@@ -100,7 +110,6 @@ class DaveService {
     "What do you call a robot that does laundry? A washine."
   ];
 
-  // YOUR PHRASES - FIXED: buddy not body
   final List<String> myGreetings = [
     "hey dave", "yo dave", "daveeee", "yo man", "hey man", "hey buddy",
     "what's up dude", "whats up dude", "what's up man", "wazup", "wazzup",
@@ -112,7 +121,6 @@ class DaveService {
   ];
 
   String pick(List<String> bank) => bank[_rand.nextInt(bank.length)];
-
   bool get catchPhrasesOn => settingsBox.get('catchPhrases_on', defaultValue: true) as bool;
   
   String withCatchphrase(String base, [List<String> bank = starting]) {
@@ -120,28 +128,26 @@ class DaveService {
     return "${pick(bank)} $base";
   }
 
-  // ADDED THIS FOR CHAT SCREEN - NOW USES TINYLLAMA
   Future<String> chat(String message) async {
     recordActivity();
     if(!_llmReady) {
       return "Brain still loading Boss, wait 10 seconds";
     }
     
-    // 1. CHECK FOR ACTIONS FIRST
-    await _handleActions(message);
+    // HANDLE ACTIONS FIRST
+    String? actionResult = await _handleActions(message);
+    if(actionResult != null) return actionResult;
     
-    // 2. ASK TINYLLAMA FOR SMART REPLY
-    String systemPrompt = "You are DAVE, a loyal Nigerian AI assistant for Master DAVID. Be short, playful, call him Boss. If asked about calls/messages, confirm you will do it.";
+    String systemPrompt = "You are DAVE, a loyal Nigerian AI assistant for Master DAVID. Be short, playful, call him Boss.";
     String fullPrompt = "$systemPrompt\nUser: $message\nDAVE:";
     
     try {
       String response = await LlmRunner.generateText(prompt: fullPrompt, maxTokens: 120, temperature: 0.7);
       response = response.replaceAll("DAVE:", "").trim();
-      
       await speak(response);
       return response;
     } catch (e) {
-      String fallback = getResponse(message); // fallback to old rules
+      String fallback = getResponse(message);
       await speak(fallback);
       return fallback;
     }
@@ -159,7 +165,6 @@ class DaveService {
     }
 
     tzdata.initializeTimeZones();
-
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
     await notifications.initialize(initSettings);
@@ -169,28 +174,47 @@ class DaveService {
     await tts.setPitch(1.0);
     recordActivity();
 
-    // LOAD TINYLLAMA BRAIN - TAKES 15s FIRST TIME
     try {
       await LlmRunner.loadModel(LlmRunner.tinyllama);
       _llmReady = true;
       await speak("Brain online Boss");
     } catch (e) {
       _llmReady = false;
+      await speak("Brain failed to load Boss");
     }
 
     await scheduleBriefings();
   }
 
-  Future<void> _handleActions(String text) async {
+  Future<String?> _handleActions(String text) async {
     text = text.toLowerCase();
-    if(text.contains("call")) {
-      await speak("Calling now Boss");
-      await FlutterPhoneDirectCaller.callNumber("08012345678"); // change number later
+
+    // 1. CALLING - ONLY FAMILY
+    for (String name in familyContacts.keys) {
+      if(text.contains("call $name")) {
+        String number = familyContacts[name]!;
+        await speak("Calling $name now Boss");
+        await FlutterPhoneDirectCaller.callNumber(number);
+        return "Calling $name";
+      }
     }
+
+    // 2. WHATSAPP - GENERAL FOR ANYONE WITH NUMBER
     if(text.contains("whatsapp")) {
-      await speak("Opening WhatsApp Boss");
-      await launchUrl(Uri.parse("https://wa.me/2348012345678")); // change number later
+      RegExp numberReg = RegExp(r'(\+?234\d{10}|0\d{10})');
+      var match = numberReg.firstMatch(text);
+      if(match != null) {
+        String number = match.group(0)!;
+        String cleanNumber = number.startsWith("0") ? "234${number.substring(1)}" : number.replaceAll("+", "");
+        await speak("Opening WhatsApp Boss");
+        await launchUrl(Uri.parse("https://wa.me/$cleanNumber"));
+        return "Opening WhatsApp";
+      } else {
+        await speak("What number should I WhatsApp Boss?");
+        return "Asking for number";
+      }
     }
+    return null;
   }
 
   Future<void> speak(String text) async {
@@ -210,7 +234,6 @@ class DaveService {
   }
 
   String getResponse(String rawInput) {
-    // FALLBACK RULES IF TINYLLAMA FAILS
     recordActivity();
     final input = rawInput.toLowerCase().trim();
     if (input.isEmpty) return "I didn't catch that, Boss. Say again?";
@@ -301,7 +324,7 @@ class DaveService {
   }
 
   List<DaveTask> get allTasks => tasksBox.values.map((n) => DaveTask.fromMap(Map.from(n))).toList();
-  int get tasksTodayCount => allTasks.length;
+  int get tasksTodayCount => allTasks.where((t) => t.dueTime != null && t.dueTime!.day == DateTime.now().day).length;
   int get tasksDoneCount => allTasks.where((t) => t.done).length;
 
   void toggleTaskDone(DaveTask task) {
