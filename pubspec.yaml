@@ -1,36 +1,47 @@
 name: dave_ai
 description: DAVE AI - Offline Voice Assistant for Master DAVID
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: ">=3.7.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  
-  # SPEECH - FIXED: REAL VOSK VERSION
-  vosk_flutter: ^0.3.48
-  flutter_tts: ^4.2.0
-  
-  # BRAIN - UPDATED PER CHATGPT
+
+  # Offline AI
+  whisper_ggml: ^2.6.0
   llama_flutter_android: ^0.2.6
-  
-  # OTHER DAVE STUFF
-  workmanager: ^0.5.2
-  battery_plus: ^6.0.0
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
-  flutter_local_notifications: ^18.0.1
+
+  # Offline device TTS
+  flutter_tts: ^4.2.3
+
+  # Microphone PCM streaming
+  record: ^5.2.1
+
+  # Download + Storage
   dio: ^5.4.0
   path_provider: ^2.1.3
-  url_launcher: ^6.3.0
-  flutter_phone_direct_caller: ^2.0.0
-  intl: ^0.18.0
+  intl: ^0.18.1
+
+  # Local storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Background work
+  workmanager: ^0.5.2
+
+  # Device information
+  battery_plus: ^6.0.0
+
+  # Local notifications
+  flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
 
 flutter:
   uses-material-design: true
-  assets:
-    - assets/
