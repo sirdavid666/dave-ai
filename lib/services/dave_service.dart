@@ -7,7 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:flutter_gpt_llama/flutter_gpt_llama.dart'; // TINYLLAMA BRAIN
+import 'package:llama_flutter/llama_flutter.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -56,12 +56,21 @@ class DaveService {
   final String modelUrl = "https://github.com/sirdavid666/dave-ai/releases/download/v1.0-brain/tinyllama.gguf";
   final String modelFileName = "tinyllama.gguf";
 
-  // FAMILY CONTACTS - ADD MORE HERE BOSS
+  // FAMILY CONTACTS - YOUR REAL NUMBERS UPDATED
   final Map<String, String> familyContacts = {
-    "dad": "08056710546", "father": "08056710546",
-    "mum": "08055633348", "mother": "08055633348",
-    "sister": "2347086930269", "sis": "2347086930269",
-    "bro": "2349122362006", "brother": "2349122362006"
+    "dad": "08056710546",
+    "father": "08056710546",
+    "daddy": "08056710546",
+
+    "mum": "08055633348",
+    "mother": "08055633348",
+    "mummy": "08055633348",
+
+    "sister": "+2347086930269",
+    "sis": "+2347086930269",
+
+    "brother": "+2349122362006",
+    "bro": "+2349122362006"
   };
 
   // CATCHPHRASES
@@ -92,7 +101,7 @@ class DaveService {
     await tts.setPitch(1.0);
 
     recordActivity();
-    await _initLLM(); // Download + Load TinyLlama from YOUR release
+    await _initLLM();
     await scheduleBriefings();
   }
 
@@ -112,7 +121,7 @@ class DaveService {
         await speak("Download complete Boss. Loading brain");
       }
 
-      await LlamaFlutter.loadModel(modelPath); // CORRECT METHOD
+      await LlamaCpp.init(modelPath: modelPath);
       _llmReady = true;
       await speak("Brain online Boss");
     } catch (e) {
@@ -126,7 +135,6 @@ class DaveService {
   Future<String> chat(String message) async {
     recordActivity();
 
-    // Check actions first: Call, WhatsApp
     String? actionResult = await _handleActions(message);
     if(actionResult!= null) {
       await speak(actionResult);
@@ -141,7 +149,7 @@ class DaveService {
 
     try {
       final prompt = "User: $message\nAssistant:";
-      final response = await LlamaFlutter.prompt(prompt); // CORRECT METHOD
+      final response = await LlamaCpp.prompt(prompt);
       String result = response.trim();
       await speak(result);
       _saveConversation(message, result);
