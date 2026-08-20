@@ -7,7 +7,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:flutter_llama/flutter_llama.dart';
+import 'package:llama_cpp_dart/llama_cpp_dart.dart'; // CERTAIN
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -43,7 +43,7 @@ class DaveService {
   late Box userDataBox;
   late Box tasksBox;
   late Box settingsBox;
-  FlutterLlama? _llama;
+  Llama? _llama; // CERTAIN
   bool _llmReady = false;
   final Random _rand = Random();
   final String masterName = "DAVID";
@@ -63,12 +63,16 @@ class DaveService {
     if(!_llmReady) return "Brain still downloading Boss, wait 2 minutes on wifi";
     String? actionResult = await _handleActions(message);
     if(actionResult!= null) return actionResult;
-    String systemPrompt = "User: $message\nAssistant:";
     try {
-      String response = await _llama!.chat(systemPrompt); // FIXED: prompt -> chat
-      response = response.replaceAll("Assistant:", "").trim();
-      await speak(response);
-      return response;
+      final prompt = "User: $message\nAssistant:";
+      final response = await _llama!.createCompletion( // CERTAIN METHOD
+        prompt: prompt,
+        maxTokens: 200,
+        temperature: 0.7,
+      );
+      String result = response.text.trim();
+      await speak(result);
+      return result;
     } catch (e) {
       String fallback = getResponse(message);
       await speak(fallback);
@@ -87,8 +91,7 @@ class DaveService {
         await dio.download(modelUrl, modelPath);
         await speak("Download complete Boss. Loading brain");
       }
-      _llama = FlutterLlama();
-      await _llama!.init(modelPath: modelPath); // FIXED: loadModel -> init
+      _llama = Llama.fromFile(path: modelPath); // CERTAIN METHOD
       _llmReady = true;
       await speak("Brain online Boss");
     } catch (e) {
