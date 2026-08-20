@@ -1,38 +1,25 @@
 name: dave_ai
-description: "DAVE AI - Your personal assistant"
+description: DAVE AI - Jarvis-style personal AI companion for Boss David
 publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.3.0 <4.0.0'
+  sdk: '>=3.2.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
-
-  # CERTAIN AI PACKAGE THAT BUILDS
-  flutter_gpt_llama: ^0.2.3
-  
-  # CORE PACKAGES
-  battery_plus: ^5.0.2
-  flutter_local_notifications: ^17.2.3
-  flutter_tts: ^4.0.0
-  hive_flutter: ^1.1.0
   hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  speech_to_text: ^6.6.2
+  flutter_tts: ^3.8.5
+  flutter_local_notifications: ^17.2.3
+  particles_flutter: ^1.0.0
+  animated_text_kit: ^4.2.2
+  battery_plus: ^6.2.0
   intl: ^0.19.0
-  timezone: ^0.9.4
-  workmanager: ^0.5.2
-  dio: ^5.4.3
-  path_provider: ^2.1.4
-  url_launcher: ^6.3.1
-  flutter_phone_direct_caller: ^2.0.0
-  flutter_animate: ^4.5.0
+  android_alarm_manager_plus: ^4.0.2
   permission_handler: ^11.3.1
-
-dev_dependencies:
-  flutter_test:
-    sdk: flutter
-  flutter_lints: ^4.0.0
 
 flutter:
   uses-material-design: true
