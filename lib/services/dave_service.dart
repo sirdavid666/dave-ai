@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data'; // ADDED FOR PCM
 import 'package:battery_plus/battery_plus.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -15,7 +17,6 @@ import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_phone_direct_caller/flutter_phone_direct_caller.dart';
-import 'package:flutter/foundation.dart';
 import '../main.dart';
 
 const String GITHUB_BASE = "https://github.com/sirdavid666/DAVE/releases/download/v0.1.0/";
@@ -128,8 +129,8 @@ class DaveService {
     final directory = await getApplicationSupportDirectory();
     final modelsDirectory = Directory('${directory.path}/models');
     if (!await modelsDirectory.exists()) await modelsDirectory.create(recursive: true);
-    finalPath = '${modelsDirectory.path}/$baseName.$extension';
-    final finalFile = File(finalPath);
+    final String finalPath = '${modelsDirectory.path}/$baseName.$extension'; // FIXED TYPO
+    final File finalFile = File(finalPath);
     if (await finalFile.exists()) return finalPath;
 
     List<File> partFiles = [];
@@ -159,6 +160,10 @@ class DaveService {
 
       status.value = "Loading AI Brain...";
       await _llama.loadModel(modelPath: _llamaModelPath!, threads: 4, contextSize: 2048);
+      
+      status.value = "Loading Voice Model...";
+      await _whisper.loadModel(modelPath: _whisperModelPath!); // FOR WHISPER 2.5.0
+      
       _llmReady = true;
       status.value = 'DAVE AI ready — say "Hey DAVE"';
       await speak("Brain online Boss");
@@ -192,10 +197,11 @@ class DaveService {
     status.value = "DAVE is listening...";
     transcript.value = "";
     response.value = "";
-    await speak('Yes, Master $MASTER_NAME.');
+    await speak('Yes, Master $masterName.'); // FIXED: masterName not MASTER_NAME
     final command = await _captureCommand();
     if (command == null || command.isEmpty) { 
       await speak('I did not hear a command.'); 
+      startWakeWordListener();
       return; 
     }
     await chat(command);
@@ -215,7 +221,7 @@ class DaveService {
     final subscription = session.partials.listen((text) { latestText = text; transcript.value = text; });
     await Future.delayed(const Duration(seconds: 5));
     try { await _recorder.stop(); } catch (_) {}
-    finalText = await session.stop();
+    String finalText = await session.stop(); // FIXED: finalText not finalText
     await subscription.cancel();
     return finalText.isNotEmpty ? finalText : latestText;
   }
@@ -241,7 +247,7 @@ class DaveService {
     try {
       status.value = "Thinking offline...";
       final buffer = StringBuffer();
-      final prompt = 'You are DAVE AI, voice assistant of Master $MASTER_NAME. Be concise, natural, friendly. Reply in 1-2 sentences. Offline only. User: $message\nAssistant:';
+      final prompt = 'You are DAVE AI, voice assistant of Master $masterName. Be concise, natural, friendly. Reply in 1-2 sentences. Offline only. User: $message\nAssistant:'; // FIXED
       
       _llamaSubscription = _llama.generate(prompt: prompt, maxTokens: 150, temperature: 0.7).listen((token) {
         buffer.write(token); response.value = buffer.toString();
@@ -310,17 +316,17 @@ class DaveService {
     if (input.contains("battery")) return withCatchphrase("Let me check Boss");
     if (input.contains("joke")) return withCatchphrase(pick(jokes));
     if (input.contains("remember")) return withCatchphrase("Got it Boss. Saved to memory");
-    return withCatchphrase("I hear you Master $masterName");
+    return withCatchphrase("I hear you Master $masterName"); // FIXED
   }
 
   Future<String> buildMorningBriefing() async {
     int batt = await battery.batteryLevel;
-    return "Good morning Master $masterName. Battery: $batt%. Let's go get it Boss.";
+    return "Good morning Master $masterName. Battery: $batt%. Let's go get it Boss."; // FIXED
   }
 
   Future<String> buildNightBriefing() async {
     int batt = await battery.batteryLevel;
-    return "Good night Master $masterName. Battery: $batt%. Rest now Boss.";
+    return "Good night Master $masterName. Battery: $batt%. Rest now Boss."; // FIXED
   }
 
   Future<void> scheduleBriefings() async {
