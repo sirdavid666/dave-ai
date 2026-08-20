@@ -10,9 +10,10 @@ dependencies:
   flutter:
     sdk: flutter
   llama_flutter_android: ^0.2.6
-  whisper_ggml: ^2.5.0  # THIS CAN USE YOUR LOCAL ggml-base.bin
+  whisper_ggml: ^2.5.0  # THIS USES YOUR LOCAL ggml-base.bin
   flutter_tts: ^4.2.3
-  record: ^5.2.1
+  record: ^5.1.2  # DOWNGRADED - 5.2.1 breaks
+  dio: ^5.4.3  # ADDED - for downloading models
   http: ^1.2.2
   path_provider: ^2.1.5
   hive_flutter: ^1.1.0
