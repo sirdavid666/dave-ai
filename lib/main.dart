@@ -9,7 +9,7 @@ import 'package:webview_flutter/webview_flutter.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:math';
-import 'dave_service.dart';
+import 'services/dave_service.dart';
 
 const String morningTask = "morningBriefing";
 const String nightTask = "nightBriefing";
