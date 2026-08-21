@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart'; // REPLACED HIVE
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_flutter_android/llama_flutter_android.dart'; 
+import 'package:llama_flutter_android/llama_flutter_android.dart' as llama; // FIX 1: Add alias
 import 'package:whisper_ggml/whisper_ggml.dart';
 import 'package:record/record.dart';
 import 'package:dio/dio.dart';
@@ -50,8 +50,8 @@ class DaveService {
   final FlutterTts tts = FlutterTts();
   final Battery battery = Battery();
   final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
-  final WhisperController _whisper = WhisperController(); // FIX 1: Keep WhisperController
-  final Llama _llama = Llama(); // FIX 2: llama_flutter_android uses Llama() not LlamaController()
+  final WhisperController _whisper = WhisperController();
+  final llama.Llama _llama = llama.Llama(); // FIX 2: Add llama. prefix
   final AudioRecorder _recorder = AudioRecorder();
   final Dio _dio = Dio();
   late SharedPreferences _prefs; // REPLACED HIVE BOXES
@@ -111,7 +111,7 @@ class DaveService {
   }
 
   Future<String> _downloadAndCombineModel(String baseName, int parts, String extension) async {
-    final directory = await getApplicationDocumentsDirectory(); // FIX 3: App private folder for Android 11+
+    final directory = await getApplicationDocumentsDirectory();
     final modelsDirectory = Directory('${directory.path}/DAVE/release');
     if (!await modelsDirectory.exists()) await modelsDirectory.create(recursive: true);
     final String finalPath = '${modelsDirectory.path}/$baseName.$extension';
@@ -146,10 +146,9 @@ class DaveService {
       _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin');
 
       status.value = "Loading AI Brain...";
-      await _llama.init(modelPath: _llamaModelPath!); // FIX 4: llama uses.init()
+      await _llama.loadModel(modelPath: _llamaModelPath!); // FIX 3:.loadModel() not.init()
       
       status.value = "Loading Voice Model...";
-      // FIX 5: whisper_ggml ^2.6.0 does NOT need loadModel. It loads on first transcribe()
       
       _llmReady = true;
       status.value = 'Ready — Tap to talk Boss';
@@ -183,13 +182,16 @@ class DaveService {
 
   Future<String?> _captureCommand() async {
     final Stream<Uint8List> pcmStream = await _recorder.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1));
-    // FIX 6: whisper_ggml uses transcribe() with modelPath
+    await Future.delayed(const Duration(seconds: 5)); // Record for 5s
+    final path = await _recorder.stop();
+    if(path == null) return null;
+
+    // FIX: whisper_ggml needs a file path
     final result = await _whisper.transcribe(
       modelPath: _whisperModelPath!,
-      audioPath: '', // we use stream, so this is empty
+      audioPath: path,
       lang: 'en',
     );
-    try { await _recorder.stop(); } catch (_) {}
     return result.text;
   }
 
