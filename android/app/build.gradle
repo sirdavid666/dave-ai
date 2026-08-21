@@ -7,16 +7,17 @@ plugins {
 android {
     namespace = "com.example.dave_ai"
 
-    compileSdk = 35
+    // Required by flutter_tts, record, path_provider,
+    // shared_preferences and url_launcher.
+    compileSdk = 36
 
-    ndkVersion = "27.0.12077973"
+    // Required by whisper_ggml and compatible with
+    // the other native plugins in this project.
+    ndkVersion = "29.0.13113456"
 
     compileOptions {
-        sourceCompatibility =
-                JavaVersion.VERSION_17
-
-        targetCompatibility =
-                JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
 
         coreLibraryDesugaringEnabled true
     }
@@ -26,15 +27,12 @@ android {
     }
 
     defaultConfig {
-        applicationId =
-                "com.example.dave_ai"
+        applicationId = "com.example.dave_ai"
 
         minSdk = 26
-
-        targetSdk = 35
+        targetSdk = 36
 
         versionCode = 1
-
         versionName = "1.0.0"
 
         multiDexEnabled = true
@@ -45,8 +43,7 @@ android {
             minifyEnabled false
             shrinkResources false
 
-            signingConfig =
-                    signingConfigs.debug
+            signingConfig = signingConfigs.debug
         }
     }
 
