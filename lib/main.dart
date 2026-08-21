@@ -9,11 +9,20 @@ import 'services/dave_service.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Start the Flutter UI first.
-  // Do NOT initialize Whisper/Llama before runApp().
-  runApp(
-    const DaveAIApp(),
-  );
+  // Do NOT initialize DAVE's models before runApp().
+  //
+  // The previous startup flow waited for:
+  // - TinyLlama download/load
+  // - Whisper download/load
+  // - TTS
+  // - notifications
+  // - WorkManager
+  //
+  // before Flutter even displayed the real app.
+  //
+  // If anything failed there, Android could simply close the app.
+
+  runApp(const DaveAIApp());
 }
 
 class DaveAIApp extends StatelessWidget {
@@ -50,8 +59,7 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen> {
-  String status = 'Starting DAVE AI...';
-  bool failed = false;
+  String startupStatus = 'Starting DAVE...';
 
   @override
   void initState() {
@@ -61,66 +69,86 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   Future<void> _startDAVE() async {
+    // Give Flutter time to completely create the Android activity/UI.
+    await Future.delayed(
+      const Duration(milliseconds: 500),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      startupStatus = 'Requesting permissions...';
+    });
+
+    // Permissions are deliberately handled separately.
+    //
+    // If a permission request fails or is unavailable,
+    // DAVE should still be able to open.
     try {
-      setState(() {
-        status = 'Requesting permissions...';
-      });
-
-      // Request permissions after the Flutter UI exists.
       await Permission.microphone.request();
-      await Permission.notification.request();
-
-      if (!mounted) return;
-
-      setState(() {
-        status = 'Initializing DAVE...';
-      });
-
-      // Initialize DAVE after the UI is already running.
-      await DaveService.instance.init();
-
-      if (!mounted) return;
-
-      setState(() {
-        status = 'DAVE is ready.';
-      });
-
-      await Future.delayed(
-        const Duration(milliseconds: 800),
-      );
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
-        ),
-      );
     } catch (e) {
-      debugPrint('DAVE STARTUP ERROR: $e');
-
-      if (!mounted) return;
-
-      setState(() {
-        failed = true;
-        status =
-            'DAVE could not finish starting.\n\n'
-            'You can still open the app and retry setup.';
-      });
-
-      // Give the user access to the UI even if initialization fails.
-      await Future.delayed(
-        const Duration(seconds: 1),
-      );
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => const HomeScreen(),
-        ),
+      debugPrint(
+        'MICROPHONE PERMISSION ERROR: $e',
       );
     }
+
+    try {
+      await Permission.notification.request();
+    } catch (e) {
+      debugPrint(
+        'NOTIFICATION PERMISSION ERROR: $e',
+      );
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      startupStatus = 'Opening DAVE...';
+    });
+
+    // IMPORTANT:
+    // We initialize DAVE AFTER the Flutter UI exists.
+    //
+    // Any initialization error is caught here so it cannot
+    // crash the whole application.
+    try {
+      await DaveService.instance.init();
+    } catch (e, stack) {
+      debugPrint(
+        'DAVE STARTUP ERROR: $e',
+      );
+
+      debugPrint(
+        '$stack',
+      );
+
+      // Keep the app alive even if AI initialization fails.
+      DaveService.instance.status.value =
+          'DAVE opened, but AI setup needs attention.';
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    // Give the user a short splash screen.
+    await Future.delayed(
+      const Duration(milliseconds: 800),
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => const HomeScreen(),
+      ),
+    );
   }
 
   @override
@@ -139,47 +167,54 @@ class _SplashScreenState extends State<SplashScreen> {
           ),
         ),
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 30,
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.smart_toy,
-                  size: 100,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(
+                Icons.smart_toy,
+                size: 100,
+                color: Color(0xFF4A90E2),
+              ),
+
+              const SizedBox(
+                height: 24,
+              ),
+
+              const Text(
+                'DAVE AI',
+                style: TextStyle(
+                  fontSize: 42,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 3,
+                ),
+              ),
+
+              const SizedBox(
+                height: 12,
+              ),
+
+              Text(
+                startupStatus,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 15,
+                ),
+              ),
+
+              const SizedBox(
+                height: 25,
+              ),
+
+              const SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.5,
                   color: Color(0xFF4A90E2),
                 ),
-
-                const SizedBox(height: 24),
-
-                const Text(
-                  'DAVE AI',
-                  style: TextStyle(
-                    fontSize: 42,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 3,
-                  ),
-                ),
-
-                const SizedBox(height: 16),
-
-                Text(
-                  status,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 15,
-                  ),
-                ),
-
-                if (failed) ...[
-                  const SizedBox(height: 25),
-                  const CircularProgressIndicator(),
-                ],
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -225,14 +260,17 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.memory),
+            selectedIcon: Icon(Icons.memory),
             label: 'Memory',
           ),
           NavigationDestination(
             icon: Icon(Icons.task_alt),
+            selectedIcon: Icon(Icons.task_alt),
             label: 'Tasks',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings),
+            selectedIcon: Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
@@ -264,7 +302,11 @@ class MemoryPage extends StatelessWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 20),
+
+                const SizedBox(
+                  height: 20,
+                ),
+
                 Text(
                   value.isEmpty
                       ? 'No recent response.'
@@ -324,19 +366,9 @@ class SettingsPage extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 30),
-
-            FilledButton.icon(
-              onPressed: () async {
-                await DaveService.instance.retryModelSetup();
-              },
-              icon: const Icon(Icons.refresh),
-              label: const Text(
-                'Retry AI Model Setup',
-              ),
+            const SizedBox(
+              height: 30,
             ),
-
-            const SizedBox(height: 20),
 
             ValueListenableBuilder<String>(
               valueListenable:
@@ -346,12 +378,30 @@ class SettingsPage extends StatelessWidget {
                   status,
                   style: const TextStyle(
                     color: Colors.white70,
+                    fontSize: 15,
                   ),
                 );
               },
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(
+              height: 20,
+            ),
+
+            FilledButton.icon(
+              onPressed:
+                  DaveService.instance.retryModelSetup,
+              icon: const Icon(
+                Icons.refresh,
+              ),
+              label: const Text(
+                'Retry AI Model Setup',
+              ),
+            ),
+
+            const SizedBox(
+              height: 20,
+            ),
 
             const Text(
               'DAVE AI is designed to run its AI brain locally after the initial model download.',
