@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import 'package:particles_flutter/particles_flutter.dart';
 import '../services/dave_service.dart';
 
 class VoicePage extends StatefulWidget {
@@ -18,7 +17,6 @@ class _VoicePageState extends State<VoicePage> {
   @override
   void initState() {
     super.initState();
-    // LISTEN TO DAVESERVICE FOR LIVE UPDATES
     _dave.status.addListener(_updateState);
     _dave.transcript.addListener(_updateState);
     _dave.response.addListener(_updateState);
@@ -45,14 +43,7 @@ class _VoicePageState extends State<VoicePage> {
     return Scaffold(
       body: Stack(
         children: [
-          Particles(
-            key: UniqueKey(),
-            numberOfParticles: 80,
-            height: MediaQuery.of(context).size.height,
-            width: MediaQuery.of(context).size.width,
-            particleColor: Colors.white.withOpacity(0.1),
-            joinParticleColor: const Color(0xFF4A90E2).withOpacity(0.3),
-          ),
+          // REMOVED PARTICLES WIDGET - IT WAS BREAKING BUILD
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -76,22 +67,21 @@ class _VoicePageState extends State<VoicePage> {
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: _isSpeaking ? const Color(0xFFFFD700).withOpacity(0.3) : const Color(0xFF4A90E2).withOpacity(0.2),
-                    border: Border.all(color: _isSpeaking ? const Color(0xFFFFD700) : const Color(0xFF4A90E2), width: 3),
+                    color: _isSpeaking? const Color(0xFFFFD700).withOpacity(0.3) : const Color(0xFF4A90E2).withOpacity(0.2),
+                    border: Border.all(color: _isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2), width: 3),
                     boxShadow: [
-                      BoxShadow(color: (_isSpeaking ? const Color(0xFFFFD700) : const Color(0xFF4A90E2)).withOpacity(0.6), blurRadius: 50, spreadRadius: 10)
+                      BoxShadow(color: (_isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2)).withOpacity(0.6), blurRadius: 50, spreadRadius: 10)
                     ],
                   ),
                   child: Icon(
-                    _isSpeaking ? Icons.volume_up : _isListening ? Icons.mic : Icons.smart_toy,
+                    _isSpeaking? Icons.volume_up : _isListening? Icons.mic : Icons.smart_toy,
                     size: 120,
-                    color: _isSpeaking ? const Color(0xFFFFD700) : const Color(0xFF4A90E2),
+                    color: _isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2),
                   ),
-                ).animate(target: _isListening || _isSpeaking ? 1 : 0).scale().then().shimmer(),
+                ).animate(target: _isListening || _isSpeaking? 1 : 0).scale().then().shimmer(),
 
                 const SizedBox(height: 30),
                 
-                // 1. LIVE SUBTITLE - WHAT YOU SAID
                 ValueListenableBuilder(valueListenable: _dave.transcript, builder: (_, text, __) => 
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -99,14 +89,14 @@ class _VoicePageState extends State<VoicePage> {
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.4),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _isListening ? const Color(0xFFFFD700) : Colors.white24)
+                    border: Border.all(color: _isListening? const Color(0xFFFFD700) : Colors.white24)
                   ),
                   child: Column(
                     children: [
-                      Text("YOU", style: TextStyle(fontSize: 12, color: _isListening ? const Color(0xFFFFD700) : Colors.white54)),
+                      Text("YOU", style: TextStyle(fontSize: 12, color: _isListening? const Color(0xFFFFD700) : Colors.white54)),
                       const SizedBox(height: 8),
                       Text(
-                        text.isEmpty ? "Say 'Hey Dave' Boss..." : text,
+                        text.isEmpty? "Say 'Hey Dave' Boss..." : text,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.w500),
                       ),
@@ -116,7 +106,6 @@ class _VoicePageState extends State<VoicePage> {
                 
                 const SizedBox(height: 20),
 
-                // 2. DAVE RESPONSE
                 ValueListenableBuilder(valueListenable: _dave.response, builder: (_, text, __) => 
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -131,7 +120,7 @@ class _VoicePageState extends State<VoicePage> {
                       const Text("DAVE", style: TextStyle(fontSize: 12, color: Color(0xFF4A90E2))),
                       const SizedBox(height: 8),
                       Text(
-                        text.isEmpty ? "DAVE AI Online" : text,
+                        text.isEmpty? "DAVE AI Online" : text,
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 20, color: Color(0xFF4A90E2), fontWeight: FontWeight.bold),
                       ),
@@ -143,7 +132,7 @@ class _VoicePageState extends State<VoicePage> {
                 ValueListenableBuilder(valueListenable: _dave.status, builder: (_, status, __) => 
                 Text(
                   status,
-                  style: TextStyle(fontSize: 16, color: _isListening ? const Color(0xFFFFD700) : Colors.white54),
+                  style: TextStyle(fontSize: 16, color: _isListening? const Color(0xFFFFD700) : Colors.white54),
                 )),
               ],
             ),
