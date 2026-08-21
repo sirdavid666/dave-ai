@@ -10,8 +10,8 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Voice
-  record: ^5.2.1
+  # Voice - DOWNGRADED TO FIX LINUX BUG
+  record: ^4.4.4 
   whisper_ggml: ^2.6.0
   flutter_tts: ^4.2.3
 
@@ -50,7 +50,6 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
   flutter_lints: ^4.0.0
 
 flutter:
