@@ -61,14 +61,11 @@ class DaveService {
   late Box tasksBox;
   late Box settingsBox;
 
-  WhisperLiveSession? _wakeSession;
-  StreamSubscription<String>? _wakeSubscription;
   StreamSubscription<String>? _llamaSubscription;
   String? _whisperModelPath;
   String? _llamaModelPath;
 
   bool _llmReady = false;
-  bool _wakeListening = false;
   bool _isSpeaking = false;
   final Random _rand = Random();
 
@@ -114,7 +111,7 @@ class DaveService {
 
     tts.setCompletionHandler(() {
       _isSpeaking = false;
-      startWakeWordListener();
+      status.value = 'Ready — Tap to talk Boss';
     });
 
     recordActivity();
@@ -154,19 +151,18 @@ class DaveService {
   Future<void> _initModels() async {
     try {
       status.value = "Checking/Downloading Models...";
-      _llamaModelPath = await _downloadAndCombineModel('tinyllama', 32, 'gguf'); // TINYLLAMA BRAIN
-      _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin'); // GGML EARS
+      _llamaModelPath = await _downloadAndCombineModel('tinyllama', 32, 'gguf');
+      _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin');
 
       status.value = "Loading AI Brain...";
       await _llama.loadModel(modelPath: _llamaModelPath!, threads: 4, contextSize: 2048);
       
       status.value = "Loading Voice Model...";
-      await _whisper.loadModel(modelPath: _whisperModelPath!); // FIXED FOR 2.5.0
+      await _whisper.loadModel(modelPath: _whisperModelPath!);
       
       _llmReady = true;
-      status.value = 'DAVE AI ready — say "Hey DAVE"';
-      await speak("Brain online Boss");
-      await startWakeWordListener();
+      status.value = 'Ready — Tap to talk Boss';
+      await speak("Brain online Boss. Tap to talk");
     } catch (e) {
       _llmReady = false;
       status.value = "Brain failed: $e";
@@ -175,41 +171,23 @@ class DaveService {
     }
   }
 
-  Future<void> startWakeWordListener() async {
-    if (!_llmReady || _wakeListening || _isSpeaking) return;
+  // NEW: TAP TO TALK FUNCTION
+  Future<void> startListening() async {
+    if (!_llmReady || _isSpeaking) return;
     final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) { status.value = "Microphone permission needed"; return; }
 
-    final Stream<Uint8List> pcmStream = await _recorder.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1));
-    final session = await _whisper.transcribeLive(modelPath: _whisperModelPath!, pcm16Stream: pcmStream, lang: 'en', initialPrompt: 'Hey DAVE. DAVE.', suppressNonSpeechTokens: true);
-    _wakeSession = session;
-    _wakeListening = true;
-    status.value = 'Listening for "Hey DAVE"...';
-    _wakeSubscription = session.partials.listen((text) {
-      if (text.toLowerCase().contains('hey dave')) { activateAssistant(); }
-    });
-  }
-
-  Future<void> activateAssistant() async {
-    await _stopWakeListener();
     status.value = "DAVE is listening...";
     transcript.value = "";
     response.value = "";
-    await speak('Yes, Master $masterName.');
+
     final command = await _captureCommand();
     if (command == null || command.isEmpty) { 
       await speak('I did not hear a command.'); 
-      startWakeWordListener();
+      status.value = 'Ready — Tap to talk Boss';
       return; 
     }
     await chat(command);
-  }
-
-  Future<void> _stopWakeListener() async {
-    await _wakeSubscription?.cancel(); _wakeSubscription = null;
-    if (_wakeListening) { try { await _recorder.stop(); } catch (_) {} }
-    try { await _wakeSession?.stop(); } catch (_) {}
-    _wakeSession = null; _wakeListening = false;
   }
 
   Future<String?> _captureCommand() async {
@@ -254,7 +232,7 @@ class DaveService {
       String result = buffer.toString().trim();
       _saveConversation(message, result);
       await speak(result);
-      status.value = 'Ready — say "Hey DAVE"';
+      status.value = 'Ready — Tap to talk Boss';
       return result;
     } catch (e) {
       String fallback = getResponse(message);
@@ -335,7 +313,6 @@ class DaveService {
   }
 
   void dispose() {
-    _wakeSubscription?.cancel();
     _llamaSubscription?.cancel();
     _recorder.dispose();
     tts.stop();
