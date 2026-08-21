@@ -1,0 +1,41 @@
+workflows:
+
+  dave-ai-android:
+
+    name: DAVE AI Android
+
+    environment:
+      flutter: 3.29.3
+
+      java: 17
+
+      vars:
+        PACKAGE_NAME: "com.example.dave_ai"
+
+    scripts:
+
+      - name: Flutter clean
+        script: |
+          flutter clean
+
+      - name: Flutter pub get
+        script: |
+          flutter pub get
+
+      - name: Flutter analyze
+        script: |
+          flutter analyze
+
+      - name: Build APK
+        script: |
+          flutter build apk \
+            --release \
+            --no-shrink
+
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
+
+    publishing:
+      email:
+        recipients:
+          - "$CM_EMAIL"
