@@ -7,7 +7,7 @@ plugins {
 android {
     namespace = "com.example.dave_ai"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = "27.0.12077973" // required by llama_flutter_android
+    ndkVersion = "25.1.8937393"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
