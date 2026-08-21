@@ -43,7 +43,7 @@ class _VoicePageState extends State<VoicePage> {
     return Scaffold(
       body: Stack(
         children: [
-          // REMOVED PARTICLES WIDGET - IT WAS BREAKING BUILD
+          // BACKGROUND
           Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -62,26 +62,30 @@ class _VoicePageState extends State<VoicePage> {
                 
                 const SizedBox(height: 40),
                 
-                // JARVIS ARC REACTOR
-                Container(
-                  padding: const EdgeInsets.all(40),
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: _isSpeaking? const Color(0xFFFFD700).withOpacity(0.3) : const Color(0xFF4A90E2).withOpacity(0.2),
-                    border: Border.all(color: _isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2), width: 3),
-                    boxShadow: [
-                      BoxShadow(color: (_isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2)).withOpacity(0.6), blurRadius: 50, spreadRadius: 10)
-                    ],
-                  ),
-                  child: Icon(
-                    _isSpeaking? Icons.volume_up : _isListening? Icons.mic : Icons.smart_toy,
-                    size: 120,
-                    color: _isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2),
+                // JARVIS ARC REACTOR - NOW TAPABLE
+                GestureDetector(
+                  onTap: _dave.startListening, // TAP TO TALK
+                  child: Container(
+                    padding: const EdgeInsets.all(40),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: _isSpeaking? const Color(0xFFFFD700).withOpacity(0.3) : const Color(0xFF4A90E2).withOpacity(0.2),
+                      border: Border.all(color: _isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2), width: 3),
+                      boxShadow: [
+                        BoxShadow(color: (_isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2)).withOpacity(0.6), blurRadius: 50, spreadRadius: 10)
+                      ],
+                    ),
+                    child: Icon(
+                      _isSpeaking? Icons.volume_up : _isListening? Icons.mic : Icons.touch_app, // mic icon when listening
+                      size: 120,
+                      color: _isSpeaking? const Color(0xFFFFD700) : const Color(0xFF4A90E2),
+                    ),
                   ),
                 ).animate(target: _isListening || _isSpeaking? 1 : 0).scale().then().shimmer(),
 
                 const SizedBox(height: 30),
                 
+                // YOU SAID
                 ValueListenableBuilder(valueListenable: _dave.transcript, builder: (_, text, __) => 
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
@@ -96,7 +100,7 @@ class _VoicePageState extends State<VoicePage> {
                       Text("YOU", style: TextStyle(fontSize: 12, color: _isListening? const Color(0xFFFFD700) : Colors.white54)),
                       const SizedBox(height: 8),
                       Text(
-                        text.isEmpty? "Say 'Hey Dave' Boss..." : text,
+                        text.isEmpty? "Tap the circle and talk Boss..." : text, // CHANGED TEXT
                         textAlign: TextAlign.center,
                         style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.w500),
                       ),
@@ -106,6 +110,7 @@ class _VoicePageState extends State<VoicePage> {
                 
                 const SizedBox(height: 20),
 
+                // DAVE RESPONSE
                 ValueListenableBuilder(valueListenable: _dave.response, builder: (_, text, __) => 
                 Container(
                   margin: const EdgeInsets.symmetric(horizontal: 20),
