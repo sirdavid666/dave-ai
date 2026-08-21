@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.dave_ai"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "29.0.13113456"
 
     compileOptions {
