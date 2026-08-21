@@ -1,221 +1,229 @@
 import 'package:flutter/material.dart';
+
 import '../services/dave_service.dart';
 
-class VoicePage extends StatefulWidget {
-  const VoicePage({super.key});
+class VoicePage
+    extends StatefulWidget {
+  const VoicePage({
+    super.key,
+  });
 
   @override
-  State<VoicePage> createState() => _VoicePageState();
+  State<VoicePage>
+      createState() =>
+          _VoicePageState();
 }
 
-class _VoicePageState extends State<VoicePage> {
-  final DaveService dave = DaveService.instance;
+class _VoicePageState
+    extends State<VoicePage> {
+  final DaveService dave =
+      DaveService.instance;
 
   @override
-  void initState() {
-    super.initState();
+  Widget build(
+    BuildContext context,
+  ) {
+    return SafeArea(
+      child: Column(
+        children: [
+          const SizedBox(
+            height: 30,
+          ),
 
-    dave.status.addListener(_refresh);
-    dave.transcript.addListener(_refresh);
-    dave.response.addListener(_refresh);
-  }
-
-  void _refresh() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
-  void dispose() {
-    dave.status.removeListener(_refresh);
-    dave.transcript.removeListener(_refresh);
-    dave.response.removeListener(_refresh);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final ready = dave.isReady;
-
-    return Scaffold(
-      backgroundColor: const Color(0xFF05070D),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const SizedBox(height: 20),
-
-            const Text(
-              'DAVE',
-              style: TextStyle(
-                fontSize: 36,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 5,
-              ),
+          const Text(
+            'DAVE AI',
+            style: TextStyle(
+              fontSize: 30,
+              fontWeight:
+                  FontWeight.bold,
+              letterSpacing: 3,
             ),
+          ),
 
-            const Text(
-              'PERSONAL AI',
-              style: TextStyle(
-                fontSize: 12,
-                letterSpacing: 4,
-                color: Colors.white54,
-              ),
-            ),
+          const SizedBox(
+            height: 10,
+          ),
 
-            const Spacer(),
-
-            AnimatedContainer(
-              duration:
-                  const Duration(milliseconds: 500),
-              width: 190,
-              height: 190,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: ready
-                      ? const Color(0xFF4A90E2)
-                      : Colors.orange,
-                  width: 3,
+          ValueListenableBuilder<
+              String>(
+            valueListenable:
+                dave.status,
+            builder:
+                (context, status, _) {
+              return Text(
+                status,
+                textAlign:
+                    TextAlign.center,
+                style:
+                    const TextStyle(
+                  color:
+                      Colors.white70,
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: ready
-                        ? const Color(0xFF4A90E2)
-                            .withOpacity(0.35)
-                        : Colors.orange
-                            .withOpacity(0.25),
-                    blurRadius: 35,
-                    spreadRadius: 8,
-                  ),
-                ],
-              ),
-              child: Icon(
-                ready
-                    ? Icons.smart_toy
-                    : Icons.cloud_download,
-                size: 85,
-                color: ready
-                    ? const Color(0xFF4A90E2)
-                    : Colors.orange,
-              ),
-            ),
+              );
+            },
+          ),
 
-            const SizedBox(height: 35),
+          const Spacer(),
 
-            Padding(
-              padding:
-                  const EdgeInsets.symmetric(
-                horizontal: 28,
-              ),
-              child: Text(
-                dave.status.value,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: Colors.white70,
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            if (dave.transcript.value.isNotEmpty)
-              Padding(
+          ValueListenableBuilder<
+              String>(
+            valueListenable:
+                dave.transcript,
+            builder:
+                (context, text, _) {
+              return Padding(
                 padding:
-                    const EdgeInsets.symmetric(
+                    const EdgeInsets
+                        .symmetric(
                   horizontal: 24,
                 ),
                 child: Text(
-                  'You: ${dave.transcript.value}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white54,
-                  ),
-                ),
-              ),
-
-            const SizedBox(height: 12),
-
-            if (dave.response.value.isNotEmpty)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 24,
-                ),
-                child: Text(
-                  dave.response.value,
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 18,
-                    color: Colors.white,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-
-            const Spacer(),
-
-            if (!ready)
-              Padding(
-                padding:
-                    const EdgeInsets.symmetric(
-                  horizontal: 30,
-                ),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed:
-                        dave.retryModelSetup,
-                    child: const Text(
-                      'RETRY AI SETUP',
-                    ),
-                  ),
-                ),
-              )
-            else
-              GestureDetector(
-                onTap: dave.startListening,
-                child: Container(
-                  width: 105,
-                  height: 105,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
+                  text.isEmpty
+                      ? 'Tap the reactor and talk to DAVE.'
+                      : 'You: $text',
+                  textAlign:
+                      TextAlign.center,
+                  style:
+                      const TextStyle(
+                    fontSize: 17,
                     color:
-                        const Color(0xFF4A90E2),
+                        Colors.white70,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const SizedBox(
+            height: 20,
+          ),
+
+          ValueListenableBuilder<
+              String>(
+            valueListenable:
+                dave.response,
+            builder:
+                (context, text, _) {
+              return Padding(
+                padding:
+                    const EdgeInsets
+                        .symmetric(
+                  horizontal: 24,
+                ),
+                child: Text(
+                  text,
+                  textAlign:
+                      TextAlign.center,
+                  style:
+                      const TextStyle(
+                    fontSize: 20,
+                    fontWeight:
+                        FontWeight.w500,
+                  ),
+                ),
+              );
+            },
+          ),
+
+          const Spacer(),
+
+          ValueListenableBuilder<
+              String>(
+            valueListenable:
+                dave.status,
+            builder:
+                (context, status, _) {
+              final listening =
+                  status.contains(
+                'listening',
+              );
+
+              final ready =
+                  dave.isReady &&
+                      dave.isWhisperReady;
+
+              return GestureDetector(
+                onTap: ready
+                    ? dave.startListening
+                    : dave.retryModelSetup,
+                child: AnimatedContainer(
+                  duration:
+                      const Duration(
+                    milliseconds: 250,
+                  ),
+                  width: 190,
+                  height: 190,
+                  decoration:
+                      BoxDecoration(
+                    shape:
+                        BoxShape.circle,
+                    border: Border.all(
+                      color: listening
+                          ? Colors
+                              .redAccent
+                          : const Color(
+                              0xFF4A90E2,
+                            ),
+                      width: 4,
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(
-                          0xFF4A90E2,
-                        ).withOpacity(0.45),
-                        blurRadius: 30,
-                        spreadRadius: 4,
+                        color: listening
+                            ? Colors
+                                .redAccent
+                                .withOpacity(
+                                0.4,
+                              )
+                            : const Color(
+                                0xFF4A90E2,
+                              ).withOpacity(
+                                0.4,
+                              ),
+                        blurRadius: 35,
+                        spreadRadius: 8,
                       ),
                     ],
                   ),
-                  child: const Icon(
-                    Icons.mic,
-                    size: 48,
-                    color: Colors.white,
+                  child: Center(
+                    child: Icon(
+                      listening
+                          ? Icons.mic
+                          : Icons
+                              .smart_toy,
+                      size: 80,
+                      color: listening
+                          ? Colors
+                              .redAccent
+                          : const Color(
+                              0xFF4A90E2,
+                            ),
+                    ),
                   ),
                 ),
-              ),
+              );
+            },
+          ),
 
-            const SizedBox(height: 16),
+          const SizedBox(
+            height: 25,
+          ),
 
-            const Text(
-              'TAP TO TALK',
-              style: TextStyle(
-                fontSize: 11,
-                letterSpacing: 3,
-                color: Colors.white38,
-              ),
+          const Text(
+            'TAP TO TALK',
+            style: TextStyle(
+              letterSpacing: 2,
+              fontWeight:
+                  FontWeight.bold,
+              color:
+                  Colors.white54,
             ),
+          ),
 
-            const SizedBox(height: 35),
-          ],
-        ),
+          const SizedBox(
+            height: 35,
+          ),
+        ],
       ),
     );
   }
-}
+}}
