@@ -1,11 +1,11 @@
 name: Build DAVE AI APK
 
 on:
+  workflow_dispatch:
+
   push:
     branches:
       - main
-
-  workflow_dispatch:
 
 jobs:
   build:
@@ -19,7 +19,7 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: zulu
+          distribution: temurin
           java-version: "17"
 
       - name: Setup Flutter
@@ -29,32 +29,31 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Flutter Doctor
-        run: flutter doctor -v
-
-      - name: Accept Android licenses
+      - name: Flutter version
         run: |
-          yes | sdkmanager --licenses || true
+          flutter --version
 
-      - name: Install Android SDK
+      - name: Flutter doctor
         run: |
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-36" \
-            "build-tools;36.0.0" \
-            "ndk;29.0.13113456"
+          flutter doctor -v
 
       - name: Flutter clean
-        run: flutter clean
+        run: |
+          flutter clean
 
-      - name: Get dependencies
-        run: flutter pub get
+      - name: Flutter pub get
+        run: |
+          flutter pub get
 
-      - name: Analyze project
-        run: flutter analyze
+      - name: Analyze
+        run: |
+          flutter analyze
 
-      - name: Build release APK
-        run: flutter build apk --release --no-shrink
+      - name: Build APK
+        run: |
+          flutter build apk \
+            --release \
+            --no-shrink
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
