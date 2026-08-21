@@ -36,7 +36,7 @@ dependencies:
 
   # Notifications/background
   flutter_local_notifications: ^18.0.1
-  workmanager: ^0.5.2
+  workmanager: ^0.7.0
   timezone: ^0.9.4
 
   # UI
