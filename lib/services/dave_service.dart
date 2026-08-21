@@ -27,16 +27,20 @@ const String nightTask = 'nightBriefing';
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
+      WidgetsFlutterBinding.ensureInitialized();
+
       final dave = DaveService.instance;
 
       await dave.initBackground();
+
+      await dave.initializeBackgroundNotifications();
 
       if (task == morningTask) {
         final text = await dave.buildMorningBriefing();
 
         await dave.notifications.show(
           1,
-          '🌅 DAVE AI Morning',
+          'DAVE AI Morning',
           text,
           const NotificationDetails(
             android: AndroidNotificationDetails(
@@ -54,7 +58,7 @@ void callbackDispatcher() {
 
         await dave.notifications.show(
           2,
-          '🌙 DAVE AI Night',
+          'DAVE AI Night',
           text,
           const NotificationDetails(
             android: AndroidNotificationDetails(
@@ -68,7 +72,8 @@ void callbackDispatcher() {
       }
 
       return true;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('WORKMANAGER CALLBACK ERROR: $e');
       return false;
     }
   });
@@ -82,22 +87,23 @@ class DaveService {
   final String masterName = 'David';
 
   final FlutterTts tts = FlutterTts();
+
   final Battery battery = Battery();
+
   final FlutterLocalNotificationsPlugin notifications =
       FlutterLocalNotificationsPlugin();
 
   final AudioRecorder _recorder = AudioRecorder();
-  final Whisper _whisper = const Whisper(
-    model: WhisperModel.base,
-  );
+
+  final WhisperController _whisper = WhisperController();
 
   final LlamaController _llama = LlamaController();
 
   final Dio _dio = Dio(
     BaseOptions(
       connectTimeout: const Duration(seconds: 30),
-      receiveTimeout: const Duration(minutes: 10),
-      sendTimeout: const Duration(minutes: 10),
+      receiveTimeout: const Duration(minutes: 15),
+      sendTimeout: const Duration(minutes: 15),
     ),
   );
 
@@ -113,6 +119,7 @@ class DaveService {
   bool _initialized = false;
   bool _isSpeaking = false;
   bool _isListening = false;
+  bool _downloading = false;
 
   final Random _random = Random();
 
@@ -129,7 +136,7 @@ class DaveService {
     'bro': '+2349122362006',
   };
 
-  static const starting = [
+  static const List<String> starting = [
     'We outside Boss.',
     'Say no more.',
     'I got you.',
@@ -137,14 +144,14 @@ class DaveService {
     'On it Boss.',
   ];
 
-  static const greetings = [
+  static const List<String> greetings = [
     'Welcome back Boss.',
-    'Hey man.',
+    'Hey Boss.',
     'What is up Boss?',
     'Yes Boss, I am here.',
   ];
 
-  static const jokes = [
+  static const List<String> jokes = [
     'Why did the AI go to therapy? Too many bytes.',
   ];
 
@@ -165,6 +172,12 @@ class DaveService {
   final ValueNotifier<String> response =
       ValueNotifier<String>('');
 
+  bool get isReady => _llmReady;
+
+  bool get isWhisperReady => _whisperReady;
+
+  bool get isDownloading => _downloading;
+
   String pick(List<String> values) {
     return values[_random.nextInt(values.length)];
   }
@@ -184,12 +197,19 @@ class DaveService {
     return '${pick(bank)} $text';
   }
 
-  bool get isReady => _llmReady;
-
-  bool get isWhisperReady => _whisperReady;
-
   Future<void> initBackground() async {
     _prefs = await SharedPreferences.getInstance();
+  }
+
+  Future<void> initializeBackgroundNotifications() async {
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+
+    const settings = InitializationSettings(
+      android: androidSettings,
+    );
+
+    await notifications.initialize(settings);
   }
 
   Future<void> init() async {
@@ -202,6 +222,7 @@ class DaveService {
     status.value = 'Initializing DAVE...';
 
     await _initializeNotifications();
+
     await _initializeTts();
 
     await _initializeModels();
@@ -212,14 +233,13 @@ class DaveService {
   }
 
   Future<void> _initializeNotifications() async {
-    const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+    await initializeBackgroundNotifications();
 
-    const settings = InitializationSettings(
-      android: androidSettings,
-    );
+    final androidPlugin =
+        notifications.resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>();
 
-    await notifications.initialize(settings);
+    await androidPlugin?.requestNotificationsPermission();
   }
 
   Future<void> _initializeTts() async {
@@ -230,12 +250,21 @@ class DaveService {
 
     tts.setCompletionHandler(() {
       _isSpeaking = false;
-      status.value = 'Ready — Tap to talk Boss';
+
+      if (!_isListening) {
+        status.value = 'Ready — Tap to talk Boss';
+      }
+    });
+
+    tts.setErrorHandler((message) {
+      _isSpeaking = false;
+      debugPrint('TTS ERROR: $message');
     });
   }
 
   Future<Directory> _modelDirectory() async {
-    final directory = await getApplicationDocumentsDirectory();
+    final directory =
+        await getApplicationDocumentsDirectory();
 
     final modelDirectory =
         Directory('${directory.path}/DAVE/models');
@@ -248,7 +277,8 @@ class DaveService {
   }
 
   Future<Directory> _recordingDirectory() async {
-    final directory = await getTemporaryDirectory();
+    final directory =
+        await getTemporaryDirectory();
 
     final recordings =
         Directory('${directory.path}/dave_recordings');
@@ -264,17 +294,21 @@ class DaveService {
     Directory directory,
     String finalName,
   ) async {
-    final file = File('${directory.path}/$finalName');
+    final file =
+        File('${directory.path}/$finalName');
 
-    if (await file.exists()) {
-      final length = await file.length();
-
-      if (length > 1024 * 1024) {
-        return file.path;
-      }
+    if (!await file.exists()) {
+      return null;
     }
 
-    return null;
+    final length =
+        await file.length();
+
+    if (length < 1024 * 1024) {
+      return null;
+    }
+
+    return file.path;
   }
 
   Future<String> _downloadAndCombineModel({
@@ -283,138 +317,176 @@ class DaveService {
     required int parts,
     required String extension,
   }) async {
-    final directory = await _modelDirectory();
+    final directory =
+        await _modelDirectory();
 
     final existing =
-        await _findExistingModel(directory, finalName);
+        await _findExistingModel(
+      directory,
+      finalName,
+    );
 
     if (existing != null) {
       return existing;
     }
 
+    _downloading = true;
+
     final finalFile =
         File('${directory.path}/$finalName');
 
     final temporaryFile =
-        File('${directory.path}/$finalName.downloading');
+        File('${directory.path}/$finalName.part');
 
     if (await temporaryFile.exists()) {
       await temporaryFile.delete();
     }
 
-    final sink = temporaryFile.openWrite();
-
     try {
-      for (int i = 1; i <= parts; i++) {
-        final number = i.toString().padLeft(3, '0');
+      final sink =
+          temporaryFile.openWrite();
 
-        final correctName =
-            '$baseName-$number.$extension';
+      try {
+        for (int i = 1; i <= parts; i++) {
+          final number =
+              i.toString().padLeft(3, '0');
 
-        final possibleNames = <String>[
-          correctName,
-        ];
+          final names = <String>[
+            '$baseName-$number.$extension',
+          ];
 
-        // Your GitHub release showed a possible historical typo
-        // ".guff" on TinyLlama. We support it as a fallback.
-        if (extension == 'gguf') {
-          possibleNames.add(
-            '$baseName-$number.guff',
-          );
-        }
-
-        File? downloadedPart;
-
-        for (final remoteName in possibleNames) {
-          final localPart =
-              File('${directory.path}/$remoteName');
-
-          if (await localPart.exists() &&
-              await localPart.length() > 1024 * 1024) {
-            downloadedPart = localPart;
-            break;
-          }
-
-          try {
-            status.value =
-                'Downloading AI brain $i/$parts...';
-
-            await _dio.download(
-              '$githubBase$remoteName',
-              localPart.path,
-              deleteOnError: true,
-              onReceiveProgress: (received, total) {
-                if (total > 0) {
-                  final percent =
-                      (received / total * 100).round();
-
-                  status.value =
-                      'Downloading $i/$parts • $percent%';
-                }
-              },
+          // Your release listing showed ".guff"
+          // on the TinyLlama files, so support
+          // that exact historical typo too.
+          if (extension == 'gguf') {
+            names.add(
+              '$baseName-$number.guff',
             );
+          }
 
-            if (await localPart.exists() &&
-                await localPart.length() > 1024 * 1024) {
-              downloadedPart = localPart;
-              break;
+          File? partFile;
+
+          for (final remoteName in names) {
+            final localFile =
+                File('${directory.path}/$remoteName');
+
+            if (await localFile.exists()) {
+              final existingLength =
+                  await localFile.length();
+
+              if (existingLength > 1024 * 1024) {
+                partFile = localFile;
+                break;
+              }
             }
-          } catch (_) {
-            if (await localPart.exists()) {
-              await localPart.delete();
+
+            status.value =
+                'Downloading AI model $i/$parts...';
+
+            try {
+              await _dio.download(
+                '$githubBase$remoteName',
+                localFile.path,
+                deleteOnError: true,
+                onReceiveProgress:
+                    (received, total) {
+                  if (total > 0) {
+                    final percent =
+                        (received / total * 100)
+                            .round();
+
+                    status.value =
+                        'Downloading $i/$parts • $percent%';
+                  }
+                },
+              );
+
+              if (await localFile.exists()) {
+                final length =
+                    await localFile.length();
+
+                if (length > 1024 * 1024) {
+                  partFile = localFile;
+                  break;
+                }
+              }
+            } catch (e) {
+              debugPrint(
+                'MODEL PART ERROR $remoteName: $e',
+              );
+
+              if (await localFile.exists()) {
+                await localFile.delete();
+              }
             }
           }
-        }
 
-        if (downloadedPart == null) {
-          throw Exception(
-            'Could not download model part $i/$parts.',
+          if (partFile == null) {
+            throw Exception(
+              'Could not download model part $i/$parts.',
+            );
+          }
+
+          status.value =
+              'Preparing model $i/$parts...';
+
+          await sink.addStream(
+            partFile.openRead(),
           );
+
+          // Delete the individual part after it has
+          // been appended. This prevents needing
+          // another ~800 MB of permanent storage.
+          try {
+            await partFile.delete();
+          } catch (_) {}
         }
 
-        await sink.addStream(
-          downloadedPart.openRead(),
-        );
+        await sink.close();
+      } catch (_) {
+        await sink.close();
+        rethrow;
       }
 
-      await sink.close();
-
-      status.value = 'Finalizing AI brain...';
+      status.value =
+          'Finalizing $finalName...';
 
       if (await finalFile.exists()) {
         await finalFile.delete();
       }
 
-      await temporaryFile.rename(finalFile.path);
+      await temporaryFile.rename(
+        finalFile.path,
+      );
+
+      final finalSize =
+          await finalFile.length();
+
+      if (finalSize < 10 * 1024 * 1024) {
+        await finalFile.delete();
+
+        throw Exception(
+          'Combined model is unexpectedly small.',
+        );
+      }
 
       return finalFile.path;
-    } catch (_) {
-      await sink.close();
+    } finally {
+      _downloading = false;
 
       if (await temporaryFile.exists()) {
         await temporaryFile.delete();
       }
-
-      rethrow;
     }
   }
 
   Future<void> _initializeModels() async {
     try {
-      status.value = 'Preparing DAVE AI...';
+      status.value =
+          'Preparing DAVE AI brain...';
 
-      /*
-       * TinyLlama:
-       *
-       * 32 × 20 MB-ish pieces
-       * -> one local TinyLlama GGUF
-       *
-       * Whisper:
-       *
-       * 7 × 20 MB-ish pieces
-       * -> one local Whisper base GGML
-       */
-
+      // TinyLlama:
+      // 32 split files -> tinyllama.gguf
       _llamaModelPath =
           await _downloadAndCombineModel(
         finalName: 'tinyllama.gguf',
@@ -423,7 +495,8 @@ class DaveService {
         extension: 'gguf',
       );
 
-      status.value = 'Loading DAVE brain...';
+      status.value =
+          'Loading DAVE brain...';
 
       await _llama.loadModel(
         modelPath: _llamaModelPath!,
@@ -434,8 +507,10 @@ class DaveService {
       _llmReady = true;
 
       status.value =
-          'Preparing voice recognition...';
+          'Preparing DAVE ears...';
 
+      // Whisper base:
+      // 7 split files -> ggml-base.bin
       _whisperModelPath =
           await _downloadAndCombineModel(
         finalName: 'ggml-base.bin',
@@ -456,18 +531,28 @@ class DaveService {
       _llmReady = false;
       _whisperReady = false;
 
-      debugPrint('DAVE MODEL ERROR: $e');
-      debugPrint('$stack');
+      debugPrint(
+        'DAVE MODEL ERROR: $e',
+      );
+
+      debugPrint(
+        '$stack',
+      );
 
       status.value =
           'AI setup failed. Connect to internet and retry.';
 
       response.value =
-          'I could not finish setting up my local brain.';
+          'I could not finish setting up my local brain. '
+          'Please retry the model setup.';
     }
   }
 
   Future<void> retryModelSetup() async {
+    if (_downloading) {
+      return;
+    }
+
     await _initializeModels();
   }
 
@@ -484,12 +569,13 @@ class DaveService {
 
     if (!_whisperReady) {
       status.value =
-          'Voice recognition is not ready yet.';
+          'DAVE voice recognition is not ready yet.';
       return;
     }
 
     if (_isSpeaking) {
       await tts.stop();
+
       _isSpeaking = false;
     }
 
@@ -519,12 +605,19 @@ class DaveService {
         await speak(
           'I did not hear a command, Boss.',
         );
+
         return;
       }
 
       await chat(command);
-    } catch (e) {
-      debugPrint('LISTEN ERROR: $e');
+    } catch (e, stack) {
+      debugPrint(
+        'LISTEN ERROR: $e',
+      );
+
+      debugPrint(
+        '$stack',
+      );
 
       status.value =
           'Voice input failed.';
@@ -549,7 +642,8 @@ class DaveService {
     final path =
         '${directory.path}/command_${DateTime.now().millisecondsSinceEpoch}.wav';
 
-    final config = const RecordConfig(
+    const config =
+        RecordConfig(
       encoder: AudioEncoder.wav,
       sampleRate: 16000,
       numChannels: 1,
@@ -560,6 +654,9 @@ class DaveService {
       config,
       path: path,
     );
+
+    status.value =
+        'Listening for 4 seconds...';
 
     await Future.delayed(
       const Duration(seconds: 4),
@@ -579,27 +676,33 @@ class DaveService {
       return null;
     }
 
-    final result =
-        await _whisper.transcribe(
-      transcribeRequest: TranscribeRequest(
-        audio: recordedPath,
-        language: 'en',
-        threads: 4,
-        noContext: true,
-        suppressNonSpeechTokens: true,
-        keepModelLoaded: true,
-      ),
-      modelPath: _whisperModelPath!,
-    );
-
     try {
-      await audioFile.delete();
-    } catch (_) {}
+      final result =
+          await _whisper.transcribe(
+        transcribeRequest:
+            TranscribeRequest(
+          audio: recordedPath,
+          language: 'en',
+          threads: 4,
+          noContext: true,
+          suppressNonSpeechTokens: true,
+          keepModelLoaded: true,
+        ),
+        modelPath:
+            _whisperModelPath!,
+      );
 
-    return result.text.trim();
+      return result.transcription.text.trim();
+    } finally {
+      try {
+        await audioFile.delete();
+      } catch (_) {}
+    }
   }
 
-  Future<String> chat(String message) async {
+  Future<String> chat(
+    String message,
+  ) async {
     final cleanMessage =
         message.trim();
 
@@ -613,20 +716,33 @@ class DaveService {
         cleanMessage;
 
     final actionResult =
-        await _handleActions(cleanMessage);
+        await _handleActions(
+      cleanMessage,
+    );
 
     if (actionResult != null) {
-      response.value = actionResult;
+      response.value =
+          actionResult;
+
+      await speak(
+        actionResult,
+      );
+
       return actionResult;
     }
 
     if (!_llmReady) {
       final fallback =
-          getResponse(cleanMessage);
+          getResponse(
+        cleanMessage,
+      );
 
-      response.value = fallback;
+      response.value =
+          fallback;
 
-      await speak(fallback);
+      await speak(
+        fallback,
+      );
 
       return fallback;
     }
@@ -641,20 +757,21 @@ class DaveService {
       final prompt = '''
 You are DAVE AI, a private personal AI assistant belonging to David.
 
-Your personality:
+Personality:
 - Friendly
 - Intelligent
 - Helpful
 - Funny when appropriate
 - Encouraging
+- Natural
 - Concise
-- Natural like a trusted personal assistant
 
-Call the user Boss when it feels natural.
+Call David "Boss" naturally when appropriate.
 
-You are running completely locally on the user's Android phone.
-Do not claim to have internet access.
-Do not invent actions you cannot perform.
+You run locally on his Android phone.
+You do not have internet access during normal AI conversation.
+Do not claim to have performed an action unless the app actually performed it.
+Do not invent information.
 
 User:
 $cleanMessage
@@ -677,10 +794,14 @@ DAVE:
       ).listen(
         (token) {
           buffer.write(token);
+
           response.value =
               buffer.toString();
         },
-        onError: (error, stack) {
+        onError: (
+          Object error,
+          StackTrace stack,
+        ) {
           if (!completer.isCompleted) {
             completer.completeError(
               error,
@@ -718,17 +839,26 @@ DAVE:
           'Ready — Tap to talk Boss';
 
       return result;
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint(
         'LLAMA GENERATION ERROR: $e',
       );
 
+      debugPrint(
+        '$stack',
+      );
+
       final fallback =
-          getResponse(cleanMessage);
+          getResponse(
+        cleanMessage,
+      );
 
-      response.value = fallback;
+      response.value =
+          fallback;
 
-      await speak(fallback);
+      await speak(
+        fallback,
+      );
 
       status.value =
           'Ready — Tap to talk Boss';
@@ -749,16 +879,15 @@ DAVE:
         final number =
             familyContacts[name]!;
 
-        await speak(
-          'Calling $name now Boss.',
-        );
-
         final uri =
             Uri.parse('tel:$number');
 
         if (await canLaunchUrl(uri)) {
-          await launchUrl(uri);
-          return 'Calling $name';
+          await launchUrl(
+            uri,
+          );
+
+          return 'Calling $name Boss.';
         }
 
         return 'I could not open the phone dialer.';
@@ -768,51 +897,65 @@ DAVE:
     if (lower.contains('whatsapp') &&
         lower.contains('message')) {
       try {
-        final afterMessage =
-            lower.split('message').last;
-
-        String name = afterMessage;
+        String name =
+            lower
+                .split('message')
+                .last;
 
         if (name.contains('on whatsapp')) {
           name =
-              name.split('on whatsapp').first;
+              name
+                  .split('on whatsapp')
+                  .first;
         }
 
-        if (name.contains('whatsapp')) {
-          name =
-              name.split('whatsapp').first;
-        }
-
-        name = name.trim();
+        name =
+            name
+                .replaceAll(
+                  'whatsapp',
+                  '',
+                )
+                .trim();
 
         final number =
-            familyContacts[name] ?? '';
+            familyContacts[name] ??
+                '';
 
         if (number.isEmpty) {
-          return 'I do not have $name in my contacts.';
+          return 'I do not have $name in my saved contacts.';
         }
 
         final message =
             text.contains(':')
-                ? text.split(':').sublist(1).join(':').trim()
+                ? text
+                    .split(':')
+                    .sublist(1)
+                    .join(':')
+                    .trim()
                 : 'Hi';
 
-        final url = Uri.parse(
+        final url =
+            Uri.parse(
           'https://wa.me/$number?text=${Uri.encodeComponent(message)}',
         );
 
         if (await canLaunchUrl(url)) {
           await launchUrl(
             url,
-            mode: LaunchMode.externalApplication,
+            mode:
+                LaunchMode.externalApplication,
           );
 
           return 'Opening WhatsApp for $name Boss.';
         }
+
+        return 'I could not open WhatsApp.';
       } catch (e) {
         debugPrint(
           'WHATSAPP ERROR: $e',
         );
+
+        return 'WhatsApp action failed.';
       }
     }
 
@@ -833,13 +976,16 @@ DAVE:
 
     await tts.stop();
 
-    await tts.speak(text);
+    await tts.speak(
+      text,
+    );
   }
 
   void recordActivity() {
     _prefs.setString(
       'last_activity',
-      DateTime.now().toIso8601String(),
+      DateTime.now()
+          .toIso8601String(),
     );
   }
 
@@ -858,11 +1004,11 @@ DAVE:
         'user': user,
         'dave': dave,
         'time':
-            DateTime.now().toIso8601String(),
+            DateTime.now()
+                .toIso8601String(),
       }),
     );
 
-    // Keep the local memory from growing forever.
     if (history.length > 100) {
       history.removeRange(
         0,
@@ -876,11 +1022,39 @@ DAVE:
     );
   }
 
+  List<Map<String, dynamic>>
+      getConversationHistory() {
+    final history =
+        _prefs.getStringList(
+              'chat_history',
+            ) ??
+            <String>[];
+
+    final result =
+        <Map<String, dynamic>>[];
+
+    for (final item in history) {
+      try {
+        final decoded =
+            jsonDecode(item);
+
+        if (decoded
+            is Map<String, dynamic>) {
+          result.add(decoded);
+        }
+      } catch (_) {}
+    }
+
+    return result;
+  }
+
   String getResponse(
     String rawInput,
   ) {
     final input =
-        rawInput.toLowerCase().trim();
+        rawInput
+            .toLowerCase()
+            .trim();
 
     if (myGreetings.any(
       (g) => input.contains(g),
@@ -919,7 +1093,8 @@ DAVE:
     );
   }
 
-  Future<String> buildMorningBriefing() async {
+  Future<String>
+      buildMorningBriefing() async {
     final batt =
         await battery.batteryLevel;
 
@@ -928,7 +1103,8 @@ DAVE:
         'Let us make today count, Boss.';
   }
 
-  Future<String> buildNightBriefing() async {
+  Future<String>
+      buildNightBriefing() async {
     final batt =
         await battery.batteryLevel;
 
@@ -937,29 +1113,32 @@ DAVE:
         'Rest well, Boss.';
   }
 
-  Future<void> scheduleBriefings() async {
+  Future<void>
+      scheduleBriefings() async {
     try {
       await Workmanager().initialize(
         callbackDispatcher,
         isInDebugMode: false,
       );
 
-      await Workmanager().registerPeriodicTask(
+      // Workmanager 0.5.2 does not use
+      // the ExistingPeriodicWorkPolicy API
+      // used in your previous code.
+
+      await Workmanager()
+          .registerPeriodicTask(
         morningTask,
         morningTask,
         frequency:
             const Duration(hours: 24),
-        existingWorkPolicy:
-            ExistingPeriodicWorkPolicy.keep,
       );
 
-      await Workmanager().registerPeriodicTask(
+      await Workmanager()
+          .registerPeriodicTask(
         nightTask,
         nightTask,
         frequency:
             const Duration(hours: 24),
-        existingWorkPolicy:
-            ExistingPeriodicWorkPolicy.keep,
       );
     } catch (e) {
       debugPrint(
@@ -969,10 +1148,12 @@ DAVE:
   }
 
   Future<void> dispose() async {
-    await _generationSubscription?.cancel();
+    await _generationSubscription
+        ?.cancel();
 
     try {
-      await _whisper.releaseModel();
+      await _whisper
+          .releaseModel();
     } catch (_) {}
 
     try {
