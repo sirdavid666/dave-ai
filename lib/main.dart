@@ -1,57 +1,66 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'services/dave_service.dart';
 import 'pages/voice_page.dart';
+import 'services/dave_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await SharedPreferences.getInstance();
 
-  await _requestPermissions();
+  await Permission.microphone.request();
+  await Permission.notification.request();
 
   await DaveService.instance.init();
 
-  runApp(const DaveAIApp());
-}
-
-Future<void> _requestPermissions() async {
-  await Permission.microphone.request();
-  await Permission.notification.request();
+  runApp(
+    const DaveAIApp(),
+  );
 }
 
 class DaveAIApp extends StatelessWidget {
-  const DaveAIApp({super.key});
+  const DaveAIApp({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return MaterialApp(
       title: 'DAVE AI',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
+      theme: ThemeData(
+        brightness: Brightness.dark,
         scaffoldBackgroundColor:
-            const Color(0xFF05070D),
+            const Color(0xFF070A12),
         colorScheme:
             ColorScheme.fromSeed(
           seedColor:
               const Color(0xFF4A90E2),
-          brightness: Brightness.dark,
+          brightness:
+              Brightness.dark,
         ),
+        useMaterial3: true,
       ),
-      home: const SplashScreen(),
+      home:
+          const SplashScreen(),
     );
   }
 }
 
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
+class SplashScreen
+    extends StatefulWidget {
+  const SplashScreen({
+    super.key,
+  });
 
   @override
-  State<SplashScreen> createState() =>
-      _SplashScreenState();
+  State<SplashScreen>
+      createState() =>
+          _SplashScreenState();
 }
 
 class _SplashScreenState
@@ -65,8 +74,8 @@ class _SplashScreenState
       () {
         if (!mounted) return;
 
-        Navigator.pushReplacement(
-          context,
+        Navigator.of(context)
+            .pushReplacement(
           MaterialPageRoute(
             builder: (_) =>
                 const HomeScreen(),
@@ -77,59 +86,41 @@ class _SplashScreenState
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
       body: Container(
         decoration:
             const BoxDecoration(
-          gradient: LinearGradient(
+          gradient:
+              LinearGradient(
+            begin:
+                Alignment.topLeft,
+            end:
+                Alignment.bottomRight,
             colors: [
               Color(0xFF05070D),
-              Color(0xFF10172A),
+              Color(0xFF101A32),
               Color(0xFF05070D),
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
           ),
         ),
         child: Center(
           child: Column(
             mainAxisAlignment:
                 MainAxisAlignment.center,
-            children: [
-              Container(
-                padding:
-                    const EdgeInsets.all(22),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color:
-                      const Color(0xFF4A90E2)
-                          .withOpacity(0.18),
-                  border: Border.all(
-                    color:
-                        const Color(0xFF4A90E2)
-                            .withOpacity(0.5),
-                  ),
-                ),
-                child: const Icon(
-                  Icons.smart_toy,
-                  size: 90,
-                  color:
-                      Color(0xFF4A90E2),
-                ),
-              )
-                  .animate()
-                  .scale(
-                    duration:
-                        const Duration(
-                      milliseconds: 900,
-                    ),
-                  )
-                  .fade(),
-
-              const SizedBox(height: 25),
-
-              const Text(
+            children: const [
+              Icon(
+                Icons.smart_toy,
+                size: 100,
+                color:
+                    Color(0xFF4A90E2),
+              ),
+              SizedBox(
+                height: 24,
+              ),
+              Text(
                 'DAVE AI',
                 style: TextStyle(
                   fontSize: 42,
@@ -137,24 +128,18 @@ class _SplashScreenState
                       FontWeight.bold,
                   letterSpacing: 3,
                 ),
-              )
-                  .animate()
-                  .fade(),
-
-              const SizedBox(height: 10),
-
-              const Text(
-                'YOUR PRIVATE LOCAL AI',
+              ),
+              SizedBox(
+                height: 12,
+              ),
+              Text(
+                'Preparing your private AI...',
                 style: TextStyle(
-                  fontSize: 12,
-                  letterSpacing: 3,
-                  color: Colors.white54,
+                  color:
+                      Colors.white70,
+                  fontSize: 15,
                 ),
               ),
-
-              const SizedBox(height: 30),
-
-              const CircularProgressIndicator(),
             ],
           ),
         ),
@@ -163,19 +148,23 @@ class _SplashScreenState
   }
 }
 
-class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+class HomeScreen
+    extends StatefulWidget {
+  const HomeScreen({
+    super.key,
+  });
 
   @override
-  State<HomeScreen> createState() =>
-      _HomeScreenState();
+  State<HomeScreen>
+      createState() =>
+          _HomeScreenState();
 }
 
 class _HomeScreenState
     extends State<HomeScreen> {
-  int index = 0;
+  int currentIndex = 0;
 
-  final pages = const [
+  final List<Widget> pages = const [
     VoicePage(),
     MemoryPage(),
     TasksPage(),
@@ -183,40 +172,44 @@ class _HomeScreenState
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) {
     return Scaffold(
-      body: pages[index],
+      body:
+          pages[currentIndex],
       bottomNavigationBar:
-          BottomNavigationBar(
-        currentIndex: index,
-        onTap: (value) {
+          NavigationBar(
+        selectedIndex:
+            currentIndex,
+        onDestinationSelected:
+            (index) {
           setState(() {
-            index = value;
+            currentIndex =
+                index;
           });
         },
-        type:
-            BottomNavigationBarType.fixed,
-        backgroundColor:
-            const Color(0xFF080A10),
-        selectedItemColor:
-            const Color(0xFF4A90E2),
-        unselectedItemColor:
-            Colors.white38,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.mic),
+        destinations: const [
+          NavigationDestination(
+            icon:
+                Icon(Icons.mic_none),
+            selectedIcon:
+                Icon(Icons.mic),
             label: 'DAVE',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.memory),
+          NavigationDestination(
+            icon:
+                Icon(Icons.memory),
             label: 'Memory',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.task),
+          NavigationDestination(
+            icon:
+                Icon(Icons.task_alt),
             label: 'Tasks',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
+          NavigationDestination(
+            icon:
+                Icon(Icons.settings),
             label: 'Settings',
           ),
         ],
@@ -225,39 +218,81 @@ class _HomeScreenState
   }
 }
 
-class MemoryPage extends StatelessWidget {
-  const MemoryPage({super.key});
+class MemoryPage
+    extends StatelessWidget {
+  const MemoryPage({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor:
-          Color(0xFF05070D),
-      body: Center(
-        child: Text(
-          'DAVE Memory',
-          style: TextStyle(
-            fontSize: 24,
-          ),
-        ),
+  Widget build(
+    BuildContext context,
+  ) {
+    return SafeArea(
+      child: ValueListenableBuilder<
+          String>(
+        valueListenable:
+            DaveService.instance
+                .response,
+        builder:
+            (context, value, _) {
+          return Padding(
+            padding:
+                const EdgeInsets.all(
+              24,
+            ),
+            child: Column(
+              crossAxisAlignment:
+                  CrossAxisAlignment
+                      .start,
+              children: [
+                const Text(
+                  'DAVE Memory',
+                  style: TextStyle(
+                    fontSize: 28,
+                    fontWeight:
+                        FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(
+                  height: 20,
+                ),
+                Text(
+                  value.isEmpty
+                      ? 'No recent response.'
+                      : value,
+                  style:
+                      const TextStyle(
+                    fontSize: 17,
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
 }
 
-class TasksPage extends StatelessWidget {
-  const TasksPage({super.key});
+class TasksPage
+    extends StatelessWidget {
+  const TasksPage({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor:
-          Color(0xFF05070D),
-      body: Center(
+  Widget build(
+    BuildContext context,
+  ) {
+    return const SafeArea(
+      child: Center(
         child: Text(
           'DAVE Tasks',
           style: TextStyle(
-            fontSize: 24,
+            fontSize: 28,
+            fontWeight:
+                FontWeight.bold,
           ),
         ),
       ),
@@ -265,20 +300,57 @@ class TasksPage extends StatelessWidget {
   }
 }
 
-class SettingsPage extends StatelessWidget {
-  const SettingsPage({super.key});
+class SettingsPage
+    extends StatelessWidget {
+  const SettingsPage({
+    super.key,
+  });
 
   @override
-  Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor:
-          Color(0xFF05070D),
-      body: Center(
-        child: Text(
-          'DAVE Settings',
-          style: TextStyle(
-            fontSize: 24,
-          ),
+  Widget build(
+    BuildContext context,
+  ) {
+    return SafeArea(
+      child: Padding(
+        padding:
+            const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment:
+              CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Settings',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+            const SizedBox(
+              height: 30,
+            ),
+            FilledButton.icon(
+              onPressed:
+                  DaveService.instance
+                      .retryModelSetup,
+              icon: const Icon(
+                Icons.refresh,
+              ),
+              label: const Text(
+                'Retry AI Model Setup',
+              ),
+            ),
+            const SizedBox(
+              height: 20,
+            ),
+            const Text(
+              'DAVE AI is designed to run its AI brain locally after the initial model download.',
+              style: TextStyle(
+                color:
+                    Colors.white70,
+              ),
+            ),
+          ],
         ),
       ),
     );
