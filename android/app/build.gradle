@@ -6,8 +6,8 @@ plugins {
 
 android {
     namespace = "com.example.dave_ai"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = "25.1.8937393"
+    compileSdk = 35
+    ndkVersion = "29.0.13113456"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,10 +21,10 @@ android {
 
     defaultConfig {
         applicationId = "com.example.dave_ai"
-        minSdk = 26 // required by llama_flutter_android
-        targetSdk = flutter.targetSdkVersion
-        versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        minSdk = 26
+        targetSdk = 35
+        versionCode = 1
+        versionName = "1.0.0"
         multiDexEnabled = true
     }
 
