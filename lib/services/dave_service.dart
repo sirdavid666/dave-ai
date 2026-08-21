@@ -11,7 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_flutter_android/llama_flutter_android.dart' as llama; // FIX 1
+import 'package:llama_flutter_android/llama_flutter_android.dart'; // FIX 1: Removed alias
 import 'package:whisper_ggml/whisper_ggml.dart';
 import 'package:record/record.dart';
 import 'package:dio/dio.dart';
@@ -30,12 +30,12 @@ void callbackDispatcher() {
     if (task == morningTask) {
       String briefing = await dave.buildMorningBriefing();
       await dave.speak(briefing);
-      await dave.notifications.show(1, "🌅 DAVE AI Morning", briefing, const NotificationDetails(android: AndroidNotificationDetails('morning_channel', 'Morning Briefing', importance: Importance.max, playSound: true)));
+      await dave.notifications.show(1, "🌅 DAVE AI Morning", briefing, const NotificationDetails(android: AndroidNotificationDetails('morning_channel', 'Morning Briefing', importance: Importance.max)));
     }
     if (task == nightTask) {
       String briefing = await dave.buildNightBriefing();
       await dave.speak(briefing);
-      await dave.notifications.show(2, "🌙 DAVE AI Night", briefing, const NotificationDetails(android: AndroidNotificationDetails('night_channel', 'Night Briefing', importance: Importance.max, playSound: true)));
+      await dave.notifications.show(2, "🌙 DAVE AI Night", briefing, const NotificationDetails(android: AndroidNotificationDetails('night_channel', 'Night Briefing', importance: Importance.max)));
     }
     return Future.value(true);
   });
@@ -46,12 +46,11 @@ class DaveService {
   static final DaveService instance = DaveService._internal();
 
   final String masterName = "David";
-
   final FlutterTts tts = FlutterTts();
   final Battery battery = Battery();
   final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
   final WhisperController _whisper = WhisperController();
-  final llama.Llama _llama = llama.Llama(); // FIX 2: Added llama.
+  final Llama _llama = Llama(); // FIX 2: No llama. prefix
   final AudioRecorder _recorder = AudioRecorder();
   final Dio _dio = Dio();
   late SharedPreferences _prefs;
@@ -59,7 +58,6 @@ class DaveService {
   StreamSubscription<String>? _llamaSubscription;
   String? _whisperModelPath;
   String? _llamaModelPath;
-
   bool _llmReady = false;
   bool _isSpeaking = false;
   final Random _rand = Random();
@@ -84,9 +82,7 @@ class DaveService {
   bool get catchPhrasesOn => _prefs.getBool('catchPhrases_on')?? true;
   String withCatchphrase(String base, [List<String> bank = starting]) => catchPhrasesOn? "${pick(bank)} $base" : base;
 
-  Future<void> initBackground() async {
-    _prefs = await SharedPreferences.getInstance();
-  }
+  Future<void> initBackground() async { _prefs = await SharedPreferences.getInstance(); }
 
   Future<void> init() async {
     await initBackground();
@@ -94,17 +90,9 @@ class DaveService {
     const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
     const initSettings = InitializationSettings(android: androidInit);
     await notifications.initialize(initSettings);
-
     await tts.setLanguage("en-US");
     await tts.setSpeechRate(0.48);
-    await tts.setPitch(1.0);
-    await tts.setVolume(1.0);
-
-    tts.setCompletionHandler(() {
-      _isSpeaking = false;
-      status.value = 'Ready — Tap to talk Boss';
-    });
-
+    tts.setCompletionHandler(() { _isSpeaking = false; status.value = 'Ready — Tap to talk Boss'; });
     recordActivity();
     await _initModels();
     await scheduleBriefings();
@@ -117,7 +105,6 @@ class DaveService {
     final String finalPath = '${modelsDirectory.path}/$baseName.$extension';
     final File finalFile = File(finalPath);
     if (await finalFile.exists()) return finalPath;
-
     for(int i = 1; i <= parts; i++) {
       String partName = '${baseName}-${i.toString().padLeft(3, '0')}.$extension';
       String partUrl = '$GITHUB_BASE$partName';
@@ -127,7 +114,6 @@ class DaveService {
         await _dio.download(partUrl, partPath);
       }
     }
-
     status.value = "Combining $baseName...";
     final sink = finalFile.openWrite();
     for(int i = 1; i <= parts; i++) {
@@ -144,33 +130,26 @@ class DaveService {
       status.value = "Checking/Downloading Models...";
       _llamaModelPath = await _downloadAndCombineModel('tinyllama', 32, 'gguf');
       _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin');
-
       status.value = "Loading AI Brain...";
-      await _llama.loadModel(modelPath: _llamaModelPath!); // FIX 3
-      
-      status.value = "Loading Voice Model...";
-      // FIX 4: whisper_ggml 2.6.0 loads model automatically on first transcribe. No loadModel() needed
-      
+      await _llama.loadModel(modelPath: _llamaModelPath!);
       _llmReady = true;
       status.value = 'Ready — Tap to talk Boss';
       await speak("Brain online Boss. Tap to talk");
     } catch (e) {
       _llmReady = false;
       status.value = "Brain failed: $e";
-      await speak("Brain failed to load Boss. Using offline mode");
+      await speak("Brain failed to load Boss");
       debugPrint("LLM Error: $e");
     }
   }
 
   Future<void> startListening() async {
     if (!_llmReady || _isSpeaking) return;
-    final hasPermission = await _recorder.hasPermission(); // FIX 5: This fixes record_linux error
+    final hasPermission = await _recorder.hasPermission();
     if (!hasPermission) { status.value = "Microphone permission needed"; return; }
-
     status.value = "DAVE is listening...";
     transcript.value = "";
     response.value = "";
-
     final command = await _captureCommand();
     if (command == null || command.isEmpty) { 
       await speak('I did not hear a command.'); 
@@ -181,15 +160,16 @@ class DaveService {
   }
 
   Future<String?> _captureCommand() async {
-    await _recorder.start(const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 16000, numChannels: 1));
+    // FIX 3: record 4.4.4 uses this
+    await _recorder.start(path: null, encoder: AudioEncoder.wav);
     await Future.delayed(const Duration(seconds: 4));
     final path = await _recorder.stop();
     if(path == null) return null;
-
-    // FIX 6: whisper_ggml 2.6.0 only needs audioPath
+    
+    // FIX 4: whisper_ggml 2.6.0 uses 'path' and 'lang'
     final result = await _whisper.transcribe(
-      audioPath: path,
-      language: 'en', // changed from lang
+      path: path,
+      lang: 'en',
     );
     return result.text;
   }
@@ -197,30 +177,22 @@ class DaveService {
   Future<String> chat(String message) async {
     recordActivity();
     transcript.value = message;
-
     String? actionResult = await _handleActions(message);
-    if(actionResult!= null) {
-      response.value = actionResult;
-      return actionResult;
-    }
-
+    if(actionResult!= null) { response.value = actionResult; return actionResult; }
     if(!_llmReady) {
       String fallback = getResponse(message);
       await speak(fallback);
       response.value = fallback;
       return fallback;
     }
-
     try {
       status.value = "Thinking offline...";
       final buffer = StringBuffer();
-      final prompt = 'You are DAVE AI, voice assistant of Master $masterName. Be concise, natural, friendly. Reply in 1-2 sentences. Offline only. User: $message\nAssistant:';
-      
+      final prompt = 'You are DAVE AI, voice assistant of Master $masterName. Be concise. User: $message\nAssistant:';
       _llamaSubscription = _llama.generate(prompt: prompt, maxTokens: 150, temperature: 0.7).listen((token) {
         buffer.write(token); response.value = buffer.toString();
       });
       await _llamaSubscription!.asFuture<void>();
-      
       String result = buffer.toString().trim();
       _saveConversation(message, result);
       await speak(result);
@@ -241,9 +213,7 @@ class DaveService {
         String number = familyContacts[name]!;
         await speak("Calling $name now Boss");
         final Uri telUri = Uri.parse('tel:$number');
-        if (await canLaunchUrl(telUri)) {
-          await launchUrl(telUri);
-        }
+        if (await canLaunchUrl(telUri)) { await launchUrl(telUri); }
         return "Calling $name";
       }
     }
@@ -254,10 +224,7 @@ class DaveService {
         String number = familyContacts[name]?? "";
         if(number.isEmpty) return "I don't have $name's number Boss";
         final Uri url = Uri.parse("https://wa.me/$number?text=${Uri.encodeComponent(msg)}");
-        if(await canLaunchUrl(url)) {
-          await launchUrl(url);
-          return "Opening WhatsApp for $name Boss";
-        }
+        if(await canLaunchUrl(url)) { await launchUrl(url); return "Opening WhatsApp for $name Boss"; }
       } catch(e) { print(e); }
     }
     return null;
@@ -272,13 +239,11 @@ class DaveService {
   }
 
   void recordActivity() => _prefs.setString('last_activity', DateTime.now().toIso8601String());
-  
   void _saveConversation(String user, String dave) {
     List<String> history = _prefs.getStringList('chat_history')?? [];
     history.add(jsonEncode({"user": user, "dave": dave, "time": DateTime.now().toString()}));
     _prefs.setStringList('chat_history', history);
   }
-
   String getResponse(String rawInput) {
     final input = rawInput.toLowerCase().trim();
     if (myGreetings.any((g) => input.contains(g))) return withCatchphrase(pick(greetings));
@@ -288,27 +253,12 @@ class DaveService {
     if (input.contains("remember")) return withCatchphrase("Got it Boss. Saved to memory");
     return withCatchphrase("I hear you Master $masterName");
   }
-
-  Future<String> buildMorningBriefing() async {
-    int batt = await battery.batteryLevel;
-    return "Good morning Master $masterName. Battery: $batt%. Let's go get it Boss.";
-  }
-
-  Future<String> buildNightBriefing() async {
-    int batt = await battery.batteryLevel;
-    return "Good night Master $masterName. Battery: $batt%. Rest now Boss.";
-  }
-
+  Future<String> buildMorningBriefing() async { int batt = await battery.batteryLevel; return "Good morning Master $masterName. Battery: $batt%. Let's go get it Boss."; }
+  Future<String> buildNightBriefing() async { int batt = await battery.batteryLevel; return "Good night Master $masterName. Battery: $batt%. Rest now Boss."; }
   Future<void> scheduleBriefings() async {
     await Workmanager().initialize(callbackDispatcher, isInDebugMode: false);
     await Workmanager().registerPeriodicTask(morningTask, morningTask, frequency: const Duration(hours: 24));
     await Workmanager().registerPeriodicTask(nightTask, nightTask, frequency: const Duration(hours: 24));
   }
-
-  void dispose() {
-    _llamaSubscription?.cancel();
-    _recorder.dispose();
-    tts.stop();
-    _llama.dispose();
-  }
+  void dispose() { _llamaSubscription?.cancel(); _recorder.dispose(); tts.stop(); _llama.dispose(); }
 }
