@@ -12,7 +12,7 @@ dependencies:
   flutter_animate: ^4.5.0
   flutter_tts: ^4.2.3
   battery_plus: ^6.1.2
-  shared_preferences: ^2.3.2  # REPLACED HIVE
+  shared_preferences: ^2.3.2
   intl: ^0.19.0
   timezone: ^0.9.4
   workmanager: ^0.5.2
@@ -22,8 +22,8 @@ dependencies:
   url_launcher: ^6.3.0
   
   llama_flutter_android: ^0.1.2
-  whisper_ggml: ^2.4.1  # STABLE VERSION
-  record: ^5.2.1        # STABLE VERSION
+  whisper_ggml: ^2.3.0  # DOWNGRADED AGAIN FOR DART 3.5.4
+  record: ^5.2.1
 
 flutter:
   uses-material-design: true
