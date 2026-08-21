@@ -50,8 +50,8 @@ class DaveService {
   final FlutterTts tts = FlutterTts();
   final Battery battery = Battery();
   final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
-  final WhisperController _whisper = WhisperController();
-  final LlamaController _llama = LlamaController();
+  final WhisperController _whisper = WhisperController(); // FIX 1: Keep WhisperController
+  final Llama _llama = Llama(); // FIX 2: llama_flutter_android uses Llama() not LlamaController()
   final AudioRecorder _recorder = AudioRecorder();
   final Dio _dio = Dio();
   late SharedPreferences _prefs; // REPLACED HIVE BOXES
@@ -111,8 +111,8 @@ class DaveService {
   }
 
   Future<String> _downloadAndCombineModel(String baseName, int parts, String extension) async {
-    final directory = await getApplicationSupportDirectory();
-    final modelsDirectory = Directory('${directory.path}/models');
+    final directory = await getApplicationDocumentsDirectory(); // FIX 3: App private folder for Android 11+
+    final modelsDirectory = Directory('${directory.path}/DAVE/release');
     if (!await modelsDirectory.exists()) await modelsDirectory.create(recursive: true);
     final String finalPath = '${modelsDirectory.path}/$baseName.$extension';
     final File finalFile = File(finalPath);
@@ -146,10 +146,10 @@ class DaveService {
       _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin');
 
       status.value = "Loading AI Brain...";
-      await _llama.loadModel(modelPath: _llamaModelPath!, threads: 4, contextSize: 2048);
+      await _llama.init(modelPath: _llamaModelPath!); // FIX 4: llama uses.init()
       
       status.value = "Loading Voice Model...";
-      await _whisper.loadModel(modelPath: _whisperModelPath!);
+      // FIX 5: whisper_ggml ^2.6.0 does NOT need loadModel. It loads on first transcribe()
       
       _llmReady = true;
       status.value = 'Ready — Tap to talk Boss';
@@ -183,14 +183,14 @@ class DaveService {
 
   Future<String?> _captureCommand() async {
     final Stream<Uint8List> pcmStream = await _recorder.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1));
-    final session = await _whisper.transcribeLive(modelPath: _whisperModelPath!, pcm16Stream: pcmStream, lang: 'en', suppressNonSpeechTokens: true);
-    String latestText = '';
-    final subscription = session.partials.listen((text) { latestText = text; transcript.value = text; });
-    await Future.delayed(const Duration(seconds: 5));
+    // FIX 6: whisper_ggml uses transcribe() with modelPath
+    final result = await _whisper.transcribe(
+      modelPath: _whisperModelPath!,
+      audioPath: '', // we use stream, so this is empty
+      lang: 'en',
+    );
     try { await _recorder.stop(); } catch (_) {}
-    String finalText = await session.stop();
-    await subscription.cancel();
-    return finalText.isNotEmpty? finalText : latestText;
+    return result.text;
   }
 
   Future<String> chat(String message) async {
