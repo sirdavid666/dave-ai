@@ -46,7 +46,7 @@ class DaveService {
   DaveService._internal();
   static final DaveService instance = DaveService._internal();
 
-  final String masterName = "David"; // <-- ADD YOUR NAME HERE BOSS
+  final String masterName = "David"; // CHANGE TO YOUR NAME
 
   final FlutterTts tts = FlutterTts();
   final Battery battery = Battery();
@@ -72,7 +72,6 @@ class DaveService {
   bool _isSpeaking = false;
   final Random _rand = Random();
 
-  // YOUR FAMILY CONTACTS
   final Map<String, String> familyContacts = {
     "dad": "08056710546", "father": "08056710546", "daddy": "08056710546",
     "mum": "08055633348", "mother": "08055633348", "mummy": "08055633348",
@@ -80,7 +79,6 @@ class DaveService {
     "brother": "+2349122362006", "bro": "+2349122362006"
   };
 
-  // CATCHPHRASES
   static const starting = ["We outside Boss", "Say no more", "I got you", "On God", "Locked in"];
   static const greetings = ["Welcome back Boss", "Hey man", "Wazup Boss", "Yes Boss, I'm here"];
   static const jokes = ["Why did the AI go to therapy? Too many bytes.", "I told my computer I needed a break, it said no, it has no cache"];
@@ -156,14 +154,14 @@ class DaveService {
   Future<void> _initModels() async {
     try {
       status.value = "Checking/Downloading Models...";
-      _llamaModelPath = await _downloadAndCombineModel('tinyllama', 32, 'gguf');
-      _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin');
+      _llamaModelPath = await _downloadAndCombineModel('tinyllama', 32, 'gguf'); // TINYLLAMA BRAIN
+      _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin'); // GGML EARS
 
       status.value = "Loading AI Brain...";
       await _llama.loadModel(modelPath: _llamaModelPath!, threads: 4, contextSize: 2048);
       
       status.value = "Loading Voice Model...";
-      await _whisper.loadModel(modelPath: _whisperModelPath!);
+      await _whisper.loadModel(modelPath: _whisperModelPath!); // FIXED FOR 2.5.0
       
       _llmReady = true;
       status.value = 'DAVE AI ready — say "Hey DAVE"';
@@ -272,7 +270,7 @@ class DaveService {
       if(lower.contains("call $name")) {
         String number = familyContacts[name]!;
         await speak("Calling $name now Boss");
-        final Uri telUri = Uri.parse('tel:$number'); // USING URL_LAUNCHER
+        final Uri telUri = Uri.parse('tel:$number');
         if (await canLaunchUrl(telUri)) {
           await launchUrl(telUri);
         }
