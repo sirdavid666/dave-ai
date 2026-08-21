@@ -1,35 +1,38 @@
 name: dave_ai
-description: "DAVE AI - on-device offline assistant"
-publish_to: 'none'
+description: "DAVE AI - private offline personal AI assistant"
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
-  sdk: ">=3.3.0 <4.0.0"
+  sdk: ">=3.7.0 <4.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
   record: ^5.2.1
   whisper_ggml: ^2.6.0
+  llama_flutter_android: ^0.2.6
+
   flutter_tts: ^4.2.3
-  llama_flutter_android: ^0.1.2
   permission_handler: ^12.0.0
+
   flutter_phone_direct_caller: ^2.1.1
   url_launcher: ^6.3.0
-  http: ^1.2.0
+
   dio: ^5.5.0
   path_provider: ^2.1.0
   shared_preferences: ^2.3.2
-  hive: ^2.2.3
-  hive_flutter: ^1.1.0
+
   flutter_local_notifications: ^18.0.1
   timezone: ^0.9.4
   workmanager: ^0.5.2
+
   flutter_animate: ^4.5.0
   intl: ^0.19.0
   battery_plus: ^6.2.0
-
-# NO dependency_overrides HERE
 
 dev_dependencies:
   flutter_test:
