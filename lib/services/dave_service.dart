@@ -7,11 +7,11 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // REPLACED HIVE
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
-import 'package:llama_flutter_android/llama_flutter_android.dart' as llama; // FIX 1: Add alias
+import 'package:llama_flutter_android/llama_flutter_android.dart' as llama; // FIX 1
 import 'package:whisper_ggml/whisper_ggml.dart';
 import 'package:record/record.dart';
 import 'package:dio/dio.dart';
@@ -45,16 +45,16 @@ class DaveService {
   DaveService._internal();
   static final DaveService instance = DaveService._internal();
 
-  final String masterName = "David"; // CHANGE TO YOUR NAME
+  final String masterName = "David";
 
   final FlutterTts tts = FlutterTts();
   final Battery battery = Battery();
   final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsPlugin();
   final WhisperController _whisper = WhisperController();
-  final llama.Llama _llama = llama.Llama(); // FIX 2: Add llama. prefix
+  final llama.Llama _llama = llama.Llama(); // FIX 2: Added llama.
   final AudioRecorder _recorder = AudioRecorder();
   final Dio _dio = Dio();
-  late SharedPreferences _prefs; // REPLACED HIVE BOXES
+  late SharedPreferences _prefs;
 
   StreamSubscription<String>? _llamaSubscription;
   String? _whisperModelPath;
@@ -73,7 +73,7 @@ class DaveService {
 
   static const starting = ["We outside Boss", "Say no more", "I got you", "On God", "Locked in"];
   static const greetings = ["Welcome back Boss", "Hey man", "Wazup Boss", "Yes Boss, I'm here"];
-  static const jokes = ["Why did the AI go to therapy? Too many bytes.", "I told my computer I needed a break, it said no, it has no cache"];
+  static const jokes = ["Why did the AI go to therapy? Too many bytes."];
   final List<String> myGreetings = ["hey dave", "yo dave", "hello", "hi", "dave"];
 
   ValueNotifier<String> status = ValueNotifier("Starting DAVE...");
@@ -85,7 +85,7 @@ class DaveService {
   String withCatchphrase(String base, [List<String> bank = starting]) => catchPhrasesOn? "${pick(bank)} $base" : base;
 
   Future<void> initBackground() async {
-    _prefs = await SharedPreferences.getInstance(); // INIT PREFS
+    _prefs = await SharedPreferences.getInstance();
   }
 
   Future<void> init() async {
@@ -146,9 +146,10 @@ class DaveService {
       _whisperModelPath = await _downloadAndCombineModel('ggml-base', 7, 'bin');
 
       status.value = "Loading AI Brain...";
-      await _llama.loadModel(modelPath: _llamaModelPath!); // FIX 3:.loadModel() not.init()
+      await _llama.loadModel(modelPath: _llamaModelPath!); // FIX 3
       
       status.value = "Loading Voice Model...";
+      // FIX 4: whisper_ggml 2.6.0 loads model automatically on first transcribe. No loadModel() needed
       
       _llmReady = true;
       status.value = 'Ready — Tap to talk Boss';
@@ -161,10 +162,9 @@ class DaveService {
     }
   }
 
-  // TAP TO TALK FUNCTION
   Future<void> startListening() async {
     if (!_llmReady || _isSpeaking) return;
-    final hasPermission = await _recorder.hasPermission();
+    final hasPermission = await _recorder.hasPermission(); // FIX 5: This fixes record_linux error
     if (!hasPermission) { status.value = "Microphone permission needed"; return; }
 
     status.value = "DAVE is listening...";
@@ -181,16 +181,15 @@ class DaveService {
   }
 
   Future<String?> _captureCommand() async {
-    final Stream<Uint8List> pcmStream = await _recorder.startStream(const RecordConfig(encoder: AudioEncoder.pcm16bits, sampleRate: 16000, numChannels: 1));
-    await Future.delayed(const Duration(seconds: 5)); // Record for 5s
+    await _recorder.start(const RecordConfig(encoder: AudioEncoder.wav, sampleRate: 16000, numChannels: 1));
+    await Future.delayed(const Duration(seconds: 4));
     final path = await _recorder.stop();
     if(path == null) return null;
 
-    // FIX: whisper_ggml needs a file path
+    // FIX 6: whisper_ggml 2.6.0 only needs audioPath
     final result = await _whisper.transcribe(
-      modelPath: _whisperModelPath!,
       audioPath: path,
-      lang: 'en',
+      language: 'en', // changed from lang
     );
     return result.text;
   }
