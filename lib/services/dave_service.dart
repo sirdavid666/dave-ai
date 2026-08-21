@@ -2,11 +2,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
+import 'dart:convert';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // REPLACED HIVE
 import 'package:intl/intl.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:workmanager/workmanager.dart';
@@ -16,7 +17,6 @@ import 'package:record/record.dart';
 import 'package:dio/dio.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../main.dart';
 
 const String GITHUB_BASE = "https://github.com/sirdavid666/DAVE/releases/download/v0.1.0/";
 const String morningTask = "morningBriefing";
@@ -25,7 +25,6 @@ const String nightTask = "nightBriefing";
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    await Hive.initFlutter();
     final DaveService dave = DaveService.instance;
     await dave.initBackground();
     if (task == morningTask) {
@@ -55,11 +54,7 @@ class DaveService {
   final LlamaController _llama = LlamaController();
   final AudioRecorder _recorder = AudioRecorder();
   final Dio _dio = Dio();
-
-  late Box conversationsBox;
-  late Box userDataBox;
-  late Box tasksBox;
-  late Box settingsBox;
+  late SharedPreferences _prefs; // REPLACED HIVE BOXES
 
   StreamSubscription<String>? _llamaSubscription;
   String? _whisperModelPath;
@@ -86,15 +81,11 @@ class DaveService {
   ValueNotifier<String> response = ValueNotifier("");
 
   String pick(List<String> bank) => bank[_rand.nextInt(bank.length)];
-  bool get catchPhrasesOn => settingsBox.get('catchPhrases_on', defaultValue: true) as bool;
+  bool get catchPhrasesOn => _prefs.getBool('catchPhrases_on')?? true;
   String withCatchphrase(String base, [List<String> bank = starting]) => catchPhrasesOn? "${pick(bank)} $base" : base;
 
   Future<void> initBackground() async {
-    await Hive.initFlutter();
-    conversationsBox = await Hive.openBox('conversations');
-    userDataBox = await Hive.openBox('user_data');
-    tasksBox = await Hive.openBox('tasks');
-    settingsBox = await Hive.openBox('settings');
+    _prefs = await SharedPreferences.getInstance(); // INIT PREFS
   }
 
   Future<void> init() async {
@@ -171,7 +162,7 @@ class DaveService {
     }
   }
 
-  // NEW: TAP TO TALK FUNCTION
+  // TAP TO TALK FUNCTION
   Future<void> startListening() async {
     if (!_llmReady || _isSpeaking) return;
     final hasPermission = await _recorder.hasPermission();
@@ -279,11 +270,12 @@ class DaveService {
     await tts.speak(text);
   }
 
-  void recordActivity() => settingsBox.put('last_activity', DateTime.now().toIso8601String());
+  void recordActivity() => _prefs.setString('last_activity', DateTime.now().toIso8601String());
+  
   void _saveConversation(String user, String dave) {
-    List history = conversationsBox.get('chat_history', defaultValue: []);
-    history.add({"user": user, "dave": dave, "time": DateTime.now().toString()});
-    conversationsBox.put('chat_history', history);
+    List<String> history = _prefs.getStringList('chat_history')?? [];
+    history.add(jsonEncode({"user": user, "dave": dave, "time": DateTime.now().toString()}));
+    _prefs.setStringList('chat_history', history);
   }
 
   String getResponse(String rawInput) {
