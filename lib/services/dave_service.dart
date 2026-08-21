@@ -6,6 +6,7 @@ import 'dart:math';
 import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
@@ -32,7 +33,6 @@ void callbackDispatcher() {
       final dave = DaveService.instance;
 
       await dave.initBackground();
-
       await dave.initializeBackgroundNotifications();
 
       if (task == morningTask) {
@@ -72,8 +72,9 @@ void callbackDispatcher() {
       }
 
       return true;
-    } catch (e) {
+    } catch (e, stack) {
       debugPrint('WORKMANAGER CALLBACK ERROR: $e');
+      debugPrint('$stack');
       return false;
     }
   });
@@ -222,9 +223,7 @@ class DaveService {
     status.value = 'Initializing DAVE...';
 
     await _initializeNotifications();
-
     await _initializeTts();
-
     await _initializeModels();
 
     _initialized = true;
@@ -263,8 +262,7 @@ class DaveService {
   }
 
   Future<Directory> _modelDirectory() async {
-    final directory =
-        await getApplicationDocumentsDirectory();
+    final directory = await getApplicationDocumentsDirectory();
 
     final modelDirectory =
         Directory('${directory.path}/DAVE/models');
@@ -277,8 +275,7 @@ class DaveService {
   }
 
   Future<Directory> _recordingDirectory() async {
-    final directory =
-        await getTemporaryDirectory();
+    final directory = await getTemporaryDirectory();
 
     final recordings =
         Directory('${directory.path}/dave_recordings');
@@ -294,15 +291,13 @@ class DaveService {
     Directory directory,
     String finalName,
   ) async {
-    final file =
-        File('${directory.path}/$finalName');
+    final file = File('${directory.path}/$finalName');
 
     if (!await file.exists()) {
       return null;
     }
 
-    final length =
-        await file.length();
+    final length = await file.length();
 
     if (length < 1024 * 1024) {
       return null;
@@ -317,11 +312,9 @@ class DaveService {
     required int parts,
     required String extension,
   }) async {
-    final directory =
-        await _modelDirectory();
+    final directory = await _modelDirectory();
 
-    final existing =
-        await _findExistingModel(
+    final existing = await _findExistingModel(
       directory,
       finalName,
     );
@@ -343,25 +336,18 @@ class DaveService {
     }
 
     try {
-      final sink =
-          temporaryFile.openWrite();
+      final sink = temporaryFile.openWrite();
 
       try {
         for (int i = 1; i <= parts; i++) {
-          final number =
-              i.toString().padLeft(3, '0');
+          final number = i.toString().padLeft(3, '0');
 
           final names = <String>[
             '$baseName-$number.$extension',
           ];
 
-          // Your release listing showed ".guff"
-          // on the TinyLlama files, so support
-          // that exact historical typo too.
           if (extension == 'gguf') {
-            names.add(
-              '$baseName-$number.guff',
-            );
+            names.add('$baseName-$number.guff');
           }
 
           File? partFile;
@@ -388,12 +374,10 @@ class DaveService {
                 '$githubBase$remoteName',
                 localFile.path,
                 deleteOnError: true,
-                onReceiveProgress:
-                    (received, total) {
+                onReceiveProgress: (received, total) {
                   if (total > 0) {
                     final percent =
-                        (received / total * 100)
-                            .round();
+                        (received / total * 100).round();
 
                     status.value =
                         'Downloading $i/$parts • $percent%';
@@ -434,9 +418,6 @@ class DaveService {
             partFile.openRead(),
           );
 
-          // Delete the individual part after it has
-          // been appended. This prevents needing
-          // another ~800 MB of permanent storage.
           try {
             await partFile.delete();
           } catch (_) {}
@@ -485,8 +466,6 @@ class DaveService {
       status.value =
           'Preparing DAVE AI brain...';
 
-      // TinyLlama:
-      // 32 split files -> tinyllama.gguf
       _llamaModelPath =
           await _downloadAndCombineModel(
         finalName: 'tinyllama.gguf',
@@ -509,8 +488,6 @@ class DaveService {
       status.value =
           'Preparing DAVE ears...';
 
-      // Whisper base:
-      // 7 split files -> ggml-base.bin
       _whisperModelPath =
           await _downloadAndCombineModel(
         finalName: 'ggml-base.bin',
@@ -531,13 +508,8 @@ class DaveService {
       _llmReady = false;
       _whisperReady = false;
 
-      debugPrint(
-        'DAVE MODEL ERROR: $e',
-      );
-
-      debugPrint(
-        '$stack',
-      );
+      debugPrint('DAVE MODEL ERROR: $e');
+      debugPrint('$stack');
 
       status.value =
           'AI setup failed. Connect to internet and retry.';
@@ -575,7 +547,6 @@ class DaveService {
 
     if (_isSpeaking) {
       await tts.stop();
-
       _isSpeaking = false;
     }
 
@@ -605,19 +576,13 @@ class DaveService {
         await speak(
           'I did not hear a command, Boss.',
         );
-
         return;
       }
 
       await chat(command);
     } catch (e, stack) {
-      debugPrint(
-        'LISTEN ERROR: $e',
-      );
-
-      debugPrint(
-        '$stack',
-      );
+      debugPrint('LISTEN ERROR: $e');
+      debugPrint('$stack');
 
       status.value =
           'Voice input failed.';
@@ -642,8 +607,7 @@ class DaveService {
     final path =
         '${directory.path}/command_${DateTime.now().millisecondsSinceEpoch}.wav';
 
-    const config =
-        RecordConfig(
+    const config = RecordConfig(
       encoder: AudioEncoder.wav,
       sampleRate: 16000,
       numChannels: 1,
@@ -677,22 +641,24 @@ class DaveService {
     }
 
     try {
+      /*
+       * whisper_ggml 2.6.0 WhisperController API.
+       *
+       * IMPORTANT:
+       * We use the controller API directly instead of
+       * the old TranscribeRequest/modelPath API.
+       */
       final result =
           await _whisper.transcribe(
-        transcribeRequest:
-            TranscribeRequest(
-          audio: recordedPath,
-          language: 'en',
-          threads: 4,
-          noContext: true,
-          suppressNonSpeechTokens: true,
-          keepModelLoaded: true,
-        ),
-        modelPath:
-            _whisperModelPath!,
+        model: WhisperModel.base,
+        audioPath: recordedPath,
+        lang: 'en',
+        noContext: true,
+        suppressNonSpeechTokens: true,
+        keepModelLoaded: true,
       );
 
-      return result.transcription.text.trim();
+      return result?.transcription.text.trim();
     } finally {
       try {
         await audioFile.delete();
@@ -716,33 +682,25 @@ class DaveService {
         cleanMessage;
 
     final actionResult =
-        await _handleActions(
-      cleanMessage,
-    );
+        await _handleActions(cleanMessage);
 
     if (actionResult != null) {
       response.value =
           actionResult;
 
-      await speak(
-        actionResult,
-      );
+      await speak(actionResult);
 
       return actionResult;
     }
 
     if (!_llmReady) {
       final fallback =
-          getResponse(
-        cleanMessage,
-      );
+          getResponse(cleanMessage);
 
       response.value =
           fallback;
 
-      await speak(
-        fallback,
-      );
+      await speak(fallback);
 
       return fallback;
     }
@@ -794,7 +752,6 @@ DAVE:
       ).listen(
         (token) {
           buffer.write(token);
-
           response.value =
               buffer.toString();
         },
@@ -843,22 +800,15 @@ DAVE:
       debugPrint(
         'LLAMA GENERATION ERROR: $e',
       );
-
-      debugPrint(
-        '$stack',
-      );
+      debugPrint('$stack');
 
       final fallback =
-          getResponse(
-        cleanMessage,
-      );
+          getResponse(cleanMessage);
 
       response.value =
           fallback;
 
-      await speak(
-        fallback,
-      );
+      await speak(fallback);
 
       status.value =
           'Ready — Tap to talk Boss';
@@ -883,9 +833,7 @@ DAVE:
             Uri.parse('tel:$number');
 
         if (await canLaunchUrl(uri)) {
-          await launchUrl(
-            uri,
-          );
+          await launchUrl(uri);
 
           return 'Calling $name Boss.';
         }
@@ -918,8 +866,7 @@ DAVE:
                 .trim();
 
         final number =
-            familyContacts[name] ??
-                '';
+            familyContacts[name] ?? '';
 
         if (number.isEmpty) {
           return 'I do not have $name in my saved contacts.';
@@ -976,9 +923,7 @@ DAVE:
 
     await tts.stop();
 
-    await tts.speak(
-      text,
-    );
+    await tts.speak(text);
   }
 
   void recordActivity() {
@@ -1093,8 +1038,7 @@ DAVE:
     );
   }
 
-  Future<String>
-      buildMorningBriefing() async {
+  Future<String> buildMorningBriefing() async {
     final batt =
         await battery.batteryLevel;
 
@@ -1103,8 +1047,7 @@ DAVE:
         'Let us make today count, Boss.';
   }
 
-  Future<String>
-      buildNightBriefing() async {
+  Future<String> buildNightBriefing() async {
     final batt =
         await battery.batteryLevel;
 
@@ -1113,28 +1056,21 @@ DAVE:
         'Rest well, Boss.';
   }
 
-  Future<void>
-      scheduleBriefings() async {
+  Future<void> scheduleBriefings() async {
     try {
       await Workmanager().initialize(
         callbackDispatcher,
         isInDebugMode: false,
       );
 
-      // Workmanager 0.5.2 does not use
-      // the ExistingPeriodicWorkPolicy API
-      // used in your previous code.
-
-      await Workmanager()
-          .registerPeriodicTask(
+      await Workmanager().registerPeriodicTask(
         morningTask,
         morningTask,
         frequency:
             const Duration(hours: 24),
       );
 
-      await Workmanager()
-          .registerPeriodicTask(
+      await Workmanager().registerPeriodicTask(
         nightTask,
         nightTask,
         frequency:
@@ -1148,12 +1084,10 @@ DAVE:
   }
 
   Future<void> dispose() async {
-    await _generationSubscription
-        ?.cancel();
+    await _generationSubscription?.cancel();
 
     try {
-      await _whisper
-          .releaseModel();
+      await _whisper.releaseModel();
     } catch (_) {}
 
     try {
