@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:hive_flutter/hive_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart'; // REPLACED HIVE
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'services/dave_service.dart';
 import 'pages/voice_page.dart';
@@ -13,13 +13,7 @@ final FlutterLocalNotificationsPlugin notifications = FlutterLocalNotificationsP
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Hive.initFlutter();
-  await Future.wait([
-    Hive.openBox('conversations'), 
-    Hive.openBox('user_data'), 
-    Hive.openBox('tasks'), 
-    Hive.openBox('settings')
-  ]);
+  await SharedPreferences.getInstance(); // INIT PREFS
   await DaveService.instance.init();
   await _initNotifications();
   await [Permission.microphone, Permission.notification, Permission.storage].request();
