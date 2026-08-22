@@ -1,4 +1,4 @@
-package com.dave.ai.jarvis
+package com.example.dave_ai
 
 import android.Manifest
 import android.content.Intent
