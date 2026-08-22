@@ -19,7 +19,7 @@ import 'package:whisper_ggml/whisper_ggml.dart';
 import 'package:workmanager/workmanager.dart';
 
 const String githubBase =
-    'https://github.com/sirdavid666/DAVE/releases/download/v0.1.0/';
+    'https://github.com/sirdavid666/dave-ai/releases/download/v0.1.0/';
 
 const String morningTask = 'morningBriefing';
 const String nightTask = 'nightBriefing';
