@@ -214,21 +214,50 @@ class DaveService {
   }
 
   Future<void> init() async {
-    if (_initialized) {
-      return;
-    }
+  if (_initialized) {
+    return;
+  }
 
+  try {
     await initBackground();
+  } catch (e) {
+    debugPrint('PREFS ERROR: $e');
+  }
 
-    status.value = 'Initializing DAVE...';
+  status.value = 'Initializing DAVE...';
 
+  try {
     await _initializeNotifications();
+  } catch (e, s) {
+    debugPrint('NOTIFICATION ERROR: $e');
+    debugPrint('$s');
+  }
+
+  try {
     await _initializeTts();
+  } catch (e, s) {
+    debugPrint('TTS ERROR: $e');
+    debugPrint('$s');
+  }
+
+  try {
     await _initializeModels();
+  } catch (e, s) {
+    debugPrint('MODEL ERROR: $e');
+    debugPrint('$s');
+  }
 
-    _initialized = true;
-
+  try {
     await scheduleBriefings();
+  } catch (e, s) {
+    debugPrint('WORKMANAGER ERROR: $e');
+    debugPrint('$s');
+  }
+
+  _initialized = true;
+
+  status.value =
+      'DAVE opened successfully.';
   }
 
   Future<void> _initializeNotifications() async {
