@@ -13,6 +13,10 @@ workflows:
       vars:
         PACKAGE_NAME: "com.example.dave_ai"
 
+    cache:
+      cache_paths:
+        - $HOME/.android/debug.keystore
+
     scripts:
 
       - name: Flutter doctor
