@@ -12,8 +12,13 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:porcupine_flutter/porcupine.dart';
+import 'package:porcupine_flutter/porcupine_error.dart';
+import 'package:porcupine_flutter/porcupine_manager.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:timezone/data/latest.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:whisper_ggml/whisper_ggml.dart';
 import 'package:workmanager/workmanager.dart';
@@ -21,8 +26,46 @@ import 'package:workmanager/workmanager.dart';
 const String githubBase =
     'https://github.com/sirdavid666/dave-ai/releases/download/v0.1.0/';
 
+/*
+ * Get your free AccessKey from https://console.picovoice.ai
+ * Paste it below, between the quotes.
+ */
+const String porcupineAccessKey =
+    'PASTE_YOUR_PICOVOICE_ACCESSKEY_HERE';
+
 const String morningTask = 'morningBriefing';
 const String nightTask = 'nightBriefing';
+
+Future<void> _speakBlocking(
+  FlutterTts tts,
+  String text,
+) async {
+  if (text.trim().isEmpty) {
+    return;
+  }
+
+  final completer = Completer<void>();
+
+  tts.setCompletionHandler(() {
+    if (!completer.isCompleted) {
+      completer.complete();
+    }
+  });
+
+  tts.setErrorHandler((msg) {
+    if (!completer.isCompleted) {
+      completer.complete();
+    }
+  });
+
+  await tts.stop();
+  await tts.speak(text);
+
+  await completer.future.timeout(
+    const Duration(seconds: 60),
+    onTimeout: () {},
+  );
+}
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -51,6 +94,8 @@ void callbackDispatcher() {
             ),
           ),
         );
+
+        await _speakBlocking(dave.tts, text);
       }
 
       if (task == nightTask) {
@@ -69,6 +114,8 @@ void callbackDispatcher() {
             ),
           ),
         );
+
+        await _speakBlocking(dave.tts, text);
       }
 
       return true;
@@ -90,6 +137,10 @@ class DaveService {
   final FlutterTts tts = FlutterTts();
 
   final Battery battery = Battery();
+
+  PorcupineManager? _porcupineManager;
+
+  bool _wakeWordActive = false;
 
   final FlutterLocalNotificationsPlugin notifications =
       FlutterLocalNotificationsPlugin();
@@ -172,6 +223,9 @@ class DaveService {
   final ValueNotifier<String> response =
       ValueNotifier<String>('');
 
+  final ValueNotifier<List<Map<String, dynamic>>> tasks =
+      ValueNotifier<List<Map<String, dynamic>>>([]);
+
   bool get isReady => _llmReady;
 
   bool get isWhisperReady => _whisperReady;
@@ -210,6 +264,10 @@ class DaveService {
     );
 
     await notifications.initialize(settings);
+
+    tz_data.initializeTimeZones();
+
+    await _loadTasks();
   }
 
   Future<void> init() async {
@@ -609,6 +667,8 @@ class DaveService {
       await speak(
         'Brain online Boss. DAVE is ready.',
       );
+
+      await startWakeWordListening();
     } catch (e, stack) {
       _llmReady = false;
       _whisperReady = false;
@@ -631,6 +691,73 @@ class DaveService {
     }
 
     await _initializeModels();
+  }
+
+  Future<void> startWakeWordListening() async {
+    if (_wakeWordActive) {
+      return;
+    }
+
+    if (porcupineAccessKey ==
+        'PASTE_YOUR_PICOVOICE_ACCESSKEY_HERE') {
+      debugPrint(
+        'WAKE WORD: No Picovoice AccessKey set yet — skipping.',
+      );
+      return;
+    }
+
+    try {
+      _porcupineManager =
+          await PorcupineManager.fromBuiltInKeywords(
+        porcupineAccessKey,
+        [BuiltInKeyword.JARVIS],
+        (keywordIndex) async {
+          await _onWakeWordDetected();
+        },
+        errorCallback: (PorcupineException error) {
+          debugPrint(
+            'WAKE WORD ERROR: ${error.message}',
+          );
+        },
+      );
+
+      await _porcupineManager?.start();
+
+      _wakeWordActive = true;
+    } catch (e, stack) {
+      debugPrint('WAKE WORD INIT ERROR: $e');
+      debugPrint('$stack');
+    }
+  }
+
+  Future<void> stopWakeWordListening() async {
+    if (!_wakeWordActive) {
+      return;
+    }
+
+    try {
+      await _porcupineManager?.stop();
+    } catch (_) {}
+
+    _wakeWordActive = false;
+  }
+
+  Future<void> _onWakeWordDetected() async {
+    if (_isListening || _isSpeaking) {
+      return;
+    }
+
+    try {
+      await _porcupineManager?.stop();
+    } catch (_) {}
+
+    await startListening();
+
+    try {
+      if (_wakeWordActive) {
+        await _porcupineManager?.start();
+      }
+    } catch (_) {}
   }
 
   Future<void> startListening() async {
@@ -810,30 +937,64 @@ class DaveService {
       final buffer =
           StringBuffer();
 
+      final fullHistory =
+          getConversationHistory();
+
+      final recentHistory =
+          fullHistory.length > 3
+              ? fullHistory.sublist(
+                  fullHistory.length - 3,
+                )
+              : fullHistory;
+
+      final historyBlock =
+          recentHistory.map((entry) {
+        final u =
+            (entry['user'] ?? '')
+                .toString();
+
+        final d =
+            (entry['dave'] ?? '')
+                .toString();
+
+        return '<|im_start|>user\n$u<|im_end|>\n<|im_start|>assistant\n$d<|im_end|>';
+      }).join('\n');
+
+      final pendingTasks =
+          tasks.value
+              .where(
+                (t) => t['done'] != true,
+              )
+              .map(
+                (t) => t['text'],
+              )
+              .take(6)
+              .join('; ');
+
       final prompt = '''
-You are DAVE AI, a private personal AI assistant belonging to David.
-
-Personality:
-- Friendly
-- Intelligent
-- Helpful
-- Funny when appropriate
-- Encouraging
-- Natural
-- Concise
-
+<|im_start|>system
+You are DAVE AI, a private personal assistant belonging to David.
+Personality: friendly, intelligent, helpful, funny when appropriate, concise.
 Call David "Boss" naturally when appropriate.
-
-You run locally on his Android phone.
-You do not have internet access during normal AI conversation.
+You run locally on his Android phone and do not have internet access during normal conversation.
 Do not claim to have performed an action unless the app actually performed it.
 Do not invent information.
-
-User:
-$cleanMessage
-
-DAVE:
+Reply only as DAVE. Never write David's next message.
+${pendingTasks.isNotEmpty ? "Boss's current pending tasks: $pendingTasks" : ''}
+<|im_end|>
+$historyBlock
+<|im_start|>user
+$cleanMessage<|im_end|>
+<|im_start|>assistant
 ''';
+
+      const stopMarkers = [
+        '<|im_end|>',
+        '<|im_start|>',
+        '\nBoss:',
+        '\nUser:',
+        '\nDAVE:',
+      ];
 
       await _generationSubscription?.cancel();
 
@@ -850,8 +1011,33 @@ DAVE:
       ).listen(
         (token) {
           buffer.write(token);
-          response.value =
+
+          final current =
               buffer.toString();
+
+          for (final marker in stopMarkers) {
+            final index =
+                current.indexOf(marker);
+
+            if (index != -1) {
+              final trimmed =
+                  current.substring(0, index);
+
+              response.value =
+                  trimmed;
+
+              if (!completer.isCompleted) {
+                completer.complete();
+              }
+
+              _generationSubscription?.cancel();
+
+              return;
+            }
+          }
+
+          response.value =
+              current;
         },
         onError: (
           Object error,
@@ -874,8 +1060,13 @@ DAVE:
 
       await completer.future;
 
-      final result =
-          buffer.toString().trim();
+      var result =
+          response.value.trim();
+
+      if (result.isEmpty) {
+        result =
+            buffer.toString().trim();
+      }
 
       if (result.isEmpty) {
         throw Exception(
@@ -921,9 +1112,78 @@ DAVE:
     final lower =
         text.toLowerCase();
 
+    final reminderMatch = RegExp(
+      r'remind me to (.+?) in (\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)',
+    ).firstMatch(lower);
+
+    if (reminderMatch != null) {
+      final task =
+          reminderMatch.group(1)!.trim();
+
+      final amount =
+          int.tryParse(
+            reminderMatch.group(2)!,
+          ) ??
+              0;
+
+      final unit =
+          reminderMatch.group(3)!;
+
+      final isHours =
+          unit.startsWith('hour') ||
+              unit.startsWith('hr');
+
+      final duration = isHours
+          ? Duration(hours: amount)
+          : Duration(minutes: amount);
+
+      return await addTask(
+        task,
+        remindIn: duration,
+      );
+    }
+
+    if (lower.startsWith('remind me to ')) {
+      final task =
+          lower
+              .replaceFirst('remind me to ', '')
+              .trim();
+
+      return await addTask(task);
+    }
+
+    if (lower.startsWith('add task ') ||
+        lower.startsWith('add a task ')) {
+      final task =
+          lower
+              .replaceFirst(
+                RegExp(r'add a? task'),
+                '',
+              )
+              .trim();
+
+      return await addTask(task);
+    }
+
+    if (RegExp(r'add (.+) to my tasks?')
+        .hasMatch(lower)) {
+      final match = RegExp(
+        r'add (.+) to my tasks?',
+      ).firstMatch(lower)!;
+
+      final task =
+          match.group(1)!.trim();
+
+      return await addTask(task);
+    }
+
     for (final name
         in familyContacts.keys) {
-      if (lower.contains('call $name')) {
+      final matchesCall =
+          lower.contains('call $name') ||
+              lower.contains('call my $name');
+
+      if (matchesCall) {
         final number =
             familyContacts[name]!;
 
@@ -1091,6 +1351,140 @@ DAVE:
     return result;
   }
 
+  Future<void> _loadTasks() async {
+    final stored =
+        _prefs.getStringList('tasks') ??
+            <String>[];
+
+    final loaded =
+        <Map<String, dynamic>>[];
+
+    for (final item in stored) {
+      try {
+        final decoded =
+            jsonDecode(item);
+
+        if (decoded
+            is Map<String, dynamic>) {
+          loaded.add(decoded);
+        }
+      } catch (_) {}
+    }
+
+    tasks.value = loaded;
+  }
+
+  Future<void> _saveTasks() async {
+    final encoded =
+        tasks.value
+            .map((task) => jsonEncode(task))
+            .toList();
+
+    await _prefs.setStringList(
+      'tasks',
+      encoded,
+    );
+  }
+
+  Future<String> addTask(
+    String text, {
+    Duration? remindIn,
+  }) async {
+    final cleanText =
+        text.trim();
+
+    if (cleanText.isEmpty) {
+      return 'I need something to add, Boss.';
+    }
+
+    final id =
+        DateTime.now()
+            .millisecondsSinceEpoch;
+
+    DateTime? remindAt;
+
+    if (remindIn != null) {
+      remindAt =
+          DateTime.now().add(remindIn);
+    }
+
+    final task = <String, dynamic>{
+      'id': id,
+      'text': cleanText,
+      'done': false,
+      'remindAt':
+          remindAt?.toIso8601String(),
+    };
+
+    tasks.value = [
+      ...tasks.value,
+      task,
+    ];
+
+    await _saveTasks();
+
+    if (remindAt != null) {
+      try {
+        await notifications.zonedSchedule(
+          id.remainder(2147483647),
+          'DAVE Reminder',
+          cleanText,
+          tz.TZDateTime.from(
+            remindAt,
+            tz.UTC,
+          ),
+          const NotificationDetails(
+            android: AndroidNotificationDetails(
+              'reminder_channel',
+              'Reminders',
+              importance: Importance.max,
+              priority: Priority.high,
+            ),
+          ),
+          androidScheduleMode:
+              AndroidScheduleMode
+                  .inexactAllowWhileIdle,
+        );
+      } catch (e, stack) {
+        debugPrint('REMINDER SCHEDULE ERROR: $e');
+        debugPrint('$stack');
+      }
+
+      return 'Got it Boss. I will remind you to $cleanText.';
+    }
+
+    return 'Added to your tasks, Boss: $cleanText.';
+  }
+
+  Future<void> completeTask(int id) async {
+    tasks.value = tasks.value.map((task) {
+      if (task['id'] == id) {
+        return {
+          ...task,
+          'done': true,
+        };
+      }
+
+      return task;
+    }).toList();
+
+    await _saveTasks();
+  }
+
+  Future<void> deleteTask(int id) async {
+    tasks.value = tasks.value
+        .where((task) => task['id'] != id)
+        .toList();
+
+    await _saveTasks();
+
+    try {
+      await notifications.cancel(
+        id.remainder(2147483647),
+      );
+    } catch (_) {}
+  }
+
   String getResponse(
     String rawInput,
   ) {
@@ -1154,6 +1548,28 @@ DAVE:
         'Rest well, Boss.';
   }
 
+  Duration _durationUntil(
+    int hour,
+    int minute,
+  ) {
+    final now = DateTime.now();
+
+    var target = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+
+    if (target.isBefore(now)) {
+      target =
+          target.add(const Duration(days: 1));
+    }
+
+    return target.difference(now);
+  }
+
   Future<void> scheduleBriefings() async {
     try {
       await Workmanager().initialize(
@@ -1166,6 +1582,8 @@ DAVE:
         morningTask,
         frequency:
             const Duration(hours: 24),
+        initialDelay:
+            _durationUntil(7, 0),
       );
 
       await Workmanager().registerPeriodicTask(
@@ -1173,6 +1591,8 @@ DAVE:
         nightTask,
         frequency:
             const Duration(hours: 24),
+        initialDelay:
+            _durationUntil(21, 0),
       );
     } catch (e) {
       debugPrint(
@@ -1183,6 +1603,11 @@ DAVE:
 
   Future<void> dispose() async {
     await _generationSubscription?.cancel();
+
+    try {
+      await _porcupineManager?.stop();
+      await _porcupineManager?.delete();
+    } catch (_) {}
 
     try {
       await _whisper.releaseModel();
