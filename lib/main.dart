@@ -96,6 +96,14 @@ class _SplashScreenState extends State<SplashScreen> {
     }
 
     try {
+      await Permission.contacts.request();
+    } catch (e) {
+      debugPrint(
+        'CONTACTS PERMISSION ERROR: $e',
+      );
+    }
+
+    try {
       await Permission.notification.request();
     } catch (e) {
       debugPrint(
