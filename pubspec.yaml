@@ -15,6 +15,12 @@ dependencies:
   llama_flutter_android: ^0.2.6
   whisper_ggml: ^2.6.0
 
+  # Contacts
+  flutter_contacts: ^1.1.9+2
+
+  # Real system alarms
+  android_intent_plus: ^5.2.0
+
   # Audio
   record: ^6.2.1
 
