@@ -24,8 +24,25 @@ class _VoicePageState
     BuildContext context,
   ) {
     return SafeArea(
-      child: Column(
-        children: [
+      child: SingleChildScrollView(
+        physics:
+            const AlwaysScrollableScrollPhysics(),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight:
+                MediaQuery.of(context)
+                        .size
+                        .height -
+                    MediaQuery.of(context)
+                        .padding
+                        .top -
+                    MediaQuery.of(context)
+                        .padding
+                        .bottom,
+          ),
+          child: IntrinsicHeight(
+            child: Column(
+              children: [
           const SizedBox(
             height: 30,
           ),
@@ -63,7 +80,9 @@ class _VoicePageState
             },
           ),
 
-          const Spacer(),
+          const SizedBox(
+            height: 40,
+          ),
 
           ValueListenableBuilder<
               String>(
@@ -125,7 +144,9 @@ class _VoicePageState
             },
           ),
 
-          const Spacer(),
+          const SizedBox(
+            height: 40,
+          ),
 
           ValueListenableBuilder<
               String>(
@@ -222,7 +243,10 @@ class _VoicePageState
           const SizedBox(
             height: 35,
           ),
-        ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }
