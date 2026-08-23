@@ -1362,6 +1362,9 @@ $cleanMessage<|im_end|>
           androidScheduleMode:
               AndroidScheduleMode
                   .inexactAllowWhileIdle,
+          uiLocalNotificationDateInterpretation:
+              UILocalNotificationDateInterpretation
+                  .absoluteTime,
         );
       } catch (e, stack) {
         debugPrint('REMINDER SCHEDULE ERROR: $e');
