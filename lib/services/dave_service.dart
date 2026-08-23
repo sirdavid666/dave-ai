@@ -7,6 +7,8 @@ import 'package:battery_plus/battery_plus.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_contacts/flutter_contacts.dart';
+import 'package:android_intent_plus/android_intent.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
@@ -172,6 +174,76 @@ class DaveService {
     'brother': '+2349122362006',
     'bro': '+2349122362006',
   };
+
+  String _toWhatsAppFormat(
+    String rawNumber,
+  ) {
+    var digits =
+        rawNumber.replaceAll(
+      RegExp(r'[^\d+]'),
+      '',
+    );
+
+    if (digits.startsWith('+')) {
+      digits = digits.substring(1);
+    } else if (digits.startsWith('0')) {
+      digits =
+          '234${digits.substring(1)}';
+    }
+
+    return digits;
+  }
+
+  Future<String?> resolveContactNumber(
+    String spokenName,
+  ) async {
+    final name =
+        spokenName.trim().toLowerCase();
+
+    if (name.isEmpty) {
+      return null;
+    }
+
+    if (familyContacts.containsKey(name)) {
+      return familyContacts[name];
+    }
+
+    try {
+      final hasPermission =
+          await FlutterContacts
+              .requestPermission(
+        readonly: true,
+      );
+
+      if (!hasPermission) {
+        return null;
+      }
+
+      final contacts =
+          await FlutterContacts.getContacts(
+        withProperties: true,
+      );
+
+      for (final contact in contacts) {
+        final displayName =
+            contact.displayName
+                .toLowerCase();
+
+        if (displayName == name ||
+            displayName.contains(name)) {
+          if (contact.phones.isNotEmpty) {
+            return contact
+                .phones.first.number;
+          }
+        }
+      }
+    } catch (e, stack) {
+      debugPrint('CONTACT LOOKUP ERROR: $e');
+      debugPrint('$stack');
+    }
+
+    return null;
+  }
 
   static const List<String> starting = [
     'We outside Boss.',
@@ -1030,6 +1102,77 @@ $cleanMessage<|im_end|>
     final lower =
         text.toLowerCase();
 
+    final alarmMatch = RegExp(
+      r'set (?:an? )?alarm (?:for|at)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?',
+    ).firstMatch(lower);
+
+    if (alarmMatch != null) {
+      var hour =
+          int.tryParse(
+            alarmMatch.group(1)!,
+          ) ??
+              0;
+
+      final minute =
+          int.tryParse(
+            alarmMatch.group(2) ?? '0',
+          ) ??
+              0;
+
+      final meridiem =
+          alarmMatch.group(3);
+
+      if (meridiem == 'pm' &&
+          hour < 12) {
+        hour += 12;
+      }
+
+      if (meridiem == 'am' &&
+          hour == 12) {
+        hour = 0;
+      }
+
+      if (hour <= 23 && minute <= 59) {
+        try {
+          final intent = AndroidIntent(
+            action:
+                'android.intent.action.SET_ALARM',
+            arguments: {
+              'android.intent.extra.alarm.HOUR':
+                  hour,
+              'android.intent.extra.alarm.MINUTES':
+                  minute,
+              'android.intent.extra.alarm.MESSAGE':
+                  'DAVE Alarm',
+              'android.intent.extra.alarm.SKIP_UI':
+                  true,
+            },
+          );
+
+          await intent.launch();
+
+          final displayHour =
+              hour.toString().padLeft(
+                2,
+                '0',
+              );
+
+          final displayMinute =
+              minute.toString().padLeft(
+                2,
+                '0',
+              );
+
+          return 'Alarm set for $displayHour:$displayMinute Boss.';
+        } catch (e, stack) {
+          debugPrint('ALARM ERROR: $e');
+          debugPrint('$stack');
+
+          return 'I could not set the alarm, Boss.';
+        }
+      }
+    }
+
     final reminderMatch = RegExp(
       r'remind me to (.+?) in (\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)',
     ).firstMatch(lower);
@@ -1059,6 +1202,51 @@ $cleanMessage<|im_end|>
         task,
         remindIn: duration,
       );
+    }
+
+    final clockMatch = RegExp(
+      r'remind me to (.+?) at (\d{1,2})(?::(\d{2}))?\s*(am|pm)?',
+    ).firstMatch(lower);
+
+    if (clockMatch != null) {
+      final task =
+          clockMatch.group(1)!.trim();
+
+      var hour =
+          int.tryParse(
+            clockMatch.group(2)!,
+          ) ??
+              0;
+
+      final minute =
+          int.tryParse(
+            clockMatch.group(3) ?? '0',
+          ) ??
+              0;
+
+      final meridiem =
+          clockMatch.group(4);
+
+      if (meridiem == 'pm' &&
+          hour < 12) {
+        hour += 12;
+      }
+
+      if (meridiem == 'am' &&
+          hour == 12) {
+        hour = 0;
+      }
+
+      if (hour <= 23 &&
+          minute <= 59) {
+        final target =
+            _durationUntil(hour, minute);
+
+        return await addTask(
+          task,
+          remindIn: target,
+        );
+      }
     }
 
     if (lower.startsWith('remind me to ')) {
@@ -1095,27 +1283,35 @@ $cleanMessage<|im_end|>
       return await addTask(task);
     }
 
-    for (final name
-        in familyContacts.keys) {
-      final matchesCall =
-          lower.contains('call $name') ||
-              lower.contains('call my $name');
+    final callMatch = RegExp(
+      r'call (?:my )?(.+)',
+    ).firstMatch(lower);
 
-      if (matchesCall) {
-        final number =
-            familyContacts[name]!;
+    if (callMatch != null &&
+        !lower.contains('called') &&
+        !lower.contains('calling')) {
+      final spokenName =
+          callMatch.group(1)!.trim();
 
-        final uri =
-            Uri.parse('tel:$number');
+      final number =
+          await resolveContactNumber(
+        spokenName,
+      );
 
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri);
-
-          return 'Calling $name Boss.';
-        }
-
-        return 'I could not open the phone dialer.';
+      if (number == null) {
+        return 'I could not find $spokenName in your contacts, Boss.';
       }
+
+      final uri =
+          Uri.parse('tel:$number');
+
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+
+        return 'Calling $spokenName Boss.';
+      }
+
+      return 'I could not open the phone dialer.';
     }
 
     if (lower.contains('whatsapp') &&
@@ -1142,10 +1338,13 @@ $cleanMessage<|im_end|>
                 .trim();
 
         final number =
-            familyContacts[name] ?? '';
+            await resolveContactNumber(
+          name,
+        ) ??
+                '';
 
         if (number.isEmpty) {
-          return 'I do not have $name in my saved contacts.';
+          return 'I could not find $name in your contacts, Boss.';
         }
 
         final message =
@@ -1159,7 +1358,7 @@ $cleanMessage<|im_end|>
 
         final url =
             Uri.parse(
-          'https://wa.me/$number?text=${Uri.encodeComponent(message)}',
+          'https://wa.me/${_toWhatsAppFormat(number)}?text=${Uri.encodeComponent(message)}',
         );
 
         if (await canLaunchUrl(url)) {
