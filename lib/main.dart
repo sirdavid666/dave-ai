@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
+import 'pages/chat_page.dart';
 import 'pages/voice_page.dart';
 import 'services/dave_service.dart';
 
@@ -236,6 +237,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   final List<Widget> pages = const [
     VoicePage(),
+    ChatPage(),
     MemoryPage(),
     TasksPage(),
     SettingsPage(),
@@ -259,6 +261,11 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'DAVE',
           ),
           NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline),
+            selectedIcon: Icon(Icons.chat_bubble),
+            label: 'Chat',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.memory),
             selectedIcon: Icon(Icons.memory),
             label: 'Memory',
@@ -279,67 +286,388 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class MemoryPage extends StatelessWidget {
+class MemoryPage extends StatefulWidget {
   const MemoryPage({
     super.key,
   });
 
   @override
+  State<MemoryPage> createState() =>
+      _MemoryPageState();
+}
+
+class _MemoryPageState
+    extends State<MemoryPage> {
+  final DaveService dave =
+      DaveService.instance;
+
+  @override
   Widget build(BuildContext context) {
+    final history =
+        dave.getConversationHistory();
+
+    final reversed =
+        history.reversed.toList();
+
     return SafeArea(
-      child: ValueListenableBuilder<String>(
-        valueListenable: DaveService.instance.response,
-        builder: (context, value, _) {
-          return Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'DAVE Memory',
-                  style: TextStyle(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-
-                const SizedBox(
-                  height: 20,
-                ),
-
-                Text(
-                  value.isEmpty
-                      ? 'No recent response.'
-                      : value,
-                  style: const TextStyle(
-                    fontSize: 17,
-                  ),
-                ),
-              ],
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              12,
             ),
-          );
-        },
+            child: Text(
+              'DAVE Memory',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
+          ),
+
+          Expanded(
+            child: reversed.isEmpty
+                ? const Center(
+                    child: Padding(
+                      padding:
+                          EdgeInsets.all(
+                        24,
+                      ),
+                      child: Text(
+                        'No conversations yet, Boss. Talk to DAVE and it will show up here.',
+                        textAlign:
+                            TextAlign
+                                .center,
+                        style: TextStyle(
+                          color: Colors
+                              .white70,
+                        ),
+                      ),
+                    ),
+                  )
+                : ListView.builder(
+                    padding:
+                        const EdgeInsets
+                            .fromLTRB(
+                      24,
+                      0,
+                      24,
+                      24,
+                    ),
+                    itemCount:
+                        reversed.length,
+                    itemBuilder:
+                        (context, index) {
+                      final entry =
+                          reversed[
+                              index];
+
+                      final user =
+                          (entry['user'] ??
+                                  '')
+                              .toString();
+
+                      final daveReply =
+                          (entry['dave'] ??
+                                  '')
+                              .toString();
+
+                      return Container(
+                        margin:
+                            const EdgeInsets
+                                .only(
+                          bottom: 16,
+                        ),
+                        padding:
+                            const EdgeInsets
+                                .all(
+                          14,
+                        ),
+                        decoration:
+                            BoxDecoration(
+                          color: Colors
+                              .white
+                              .withOpacity(
+                            0.05,
+                          ),
+                          borderRadius:
+                              BorderRadius
+                                  .circular(
+                            14,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment:
+                              CrossAxisAlignment
+                                  .start,
+                          children: [
+                            Text(
+                              'Boss: $user',
+                              style:
+                                  const TextStyle(
+                                color: Color(
+                                  0xFF4A90E2,
+                                ),
+                                fontWeight:
+                                    FontWeight
+                                        .w600,
+                              ),
+                            ),
+                            const SizedBox(
+                              height: 6,
+                            ),
+                            Text(
+                              'DAVE: $daveReply',
+                              style:
+                                  const TextStyle(
+                                color: Colors
+                                    .white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class TasksPage extends StatelessWidget {
+class TasksPage extends StatefulWidget {
   const TasksPage({
     super.key,
   });
 
   @override
+  State<TasksPage> createState() =>
+      _TasksPageState();
+}
+
+class _TasksPageState
+    extends State<TasksPage> {
+  final DaveService dave =
+      DaveService.instance;
+
+  final TextEditingController
+      controller =
+      TextEditingController();
+
+  Future<void> _submit() async {
+    final text =
+        controller.text.trim();
+
+    if (text.isEmpty) {
+      return;
+    }
+
+    controller.clear();
+
+    await dave.addTask(text);
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return const SafeArea(
-      child: Center(
-        child: Text(
-          'DAVE Tasks',
-          style: TextStyle(
-            fontSize: 28,
-            fontWeight: FontWeight.bold,
+    return SafeArea(
+      child: Column(
+        crossAxisAlignment:
+            CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(
+              24,
+              24,
+              24,
+              12,
+            ),
+            child: Text(
+              'DAVE Tasks',
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight:
+                    FontWeight.bold,
+              ),
+            ),
           ),
-        ),
+
+          Padding(
+            padding:
+                const EdgeInsets.symmetric(
+              horizontal: 24,
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller:
+                        controller,
+                    onSubmitted:
+                        (_) => _submit(),
+                    decoration:
+                        const InputDecoration(
+                      hintText:
+                          'Add a task...',
+                      border:
+                          OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(
+                  width: 10,
+                ),
+                IconButton.filled(
+                  onPressed: _submit,
+                  icon: const Icon(
+                    Icons.add,
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(
+            height: 12,
+          ),
+
+          Expanded(
+            child: ValueListenableBuilder<
+                List<
+                    Map<String,
+                        dynamic>>>(
+              valueListenable:
+                  dave.tasks,
+              builder:
+                  (context, taskList, _) {
+                if (taskList.isEmpty) {
+                  return const Center(
+                    child: Padding(
+                      padding:
+                          EdgeInsets.all(
+                        24,
+                      ),
+                      child: Text(
+                        'No tasks yet, Boss. Add one above or just tell DAVE.',
+                        textAlign:
+                            TextAlign
+                                .center,
+                        style: TextStyle(
+                          color: Colors
+                              .white70,
+                        ),
+                      ),
+                    ),
+                  );
+                }
+
+                final sorted =
+                    [...taskList]..sort(
+                        (a, b) {
+                          final aDone =
+                              a['done'] ==
+                                  true;
+                          final bDone =
+                              b['done'] ==
+                                  true;
+
+                          if (aDone ==
+                              bDone) {
+                            return 0;
+                          }
+
+                          return aDone
+                              ? 1
+                              : -1;
+                        },
+                      );
+
+                return ListView.builder(
+                  padding:
+                      const EdgeInsets
+                          .fromLTRB(
+                    12,
+                    0,
+                    12,
+                    24,
+                  ),
+                  itemCount:
+                      sorted.length,
+                  itemBuilder:
+                      (context, index) {
+                    final task =
+                        sorted[index];
+
+                    final id =
+                        task['id']
+                            as int;
+
+                    final text =
+                        (task['text'] ??
+                                '')
+                            .toString();
+
+                    final done =
+                        task['done'] ==
+                            true;
+
+                    final remindAt =
+                        task['remindAt'];
+
+                    return CheckboxListTile(
+                      value: done,
+                      onChanged: (_) =>
+                          dave.completeTask(
+                        id,
+                      ),
+                      title: Text(
+                        text,
+                        style: TextStyle(
+                          decoration: done
+                              ? TextDecoration
+                                  .lineThrough
+                              : TextDecoration
+                                  .none,
+                          color: done
+                              ? Colors
+                                  .white38
+                              : Colors
+                                  .white,
+                        ),
+                      ),
+                      subtitle:
+                          remindAt != null
+                              ? Text(
+                                  'Reminder set',
+                                  style:
+                                      const TextStyle(
+                                    color: Color(
+                                      0xFF4A90E2,
+                                    ),
+                                    fontSize:
+                                        12,
+                                  ),
+                                )
+                              : null,
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
