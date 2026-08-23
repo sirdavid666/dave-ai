@@ -12,9 +12,6 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:intl/intl.dart';
 import 'package:llama_flutter_android/llama_flutter_android.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:porcupine_flutter/porcupine.dart';
-import 'package:porcupine_flutter/porcupine_error.dart';
-import 'package:porcupine_flutter/porcupine_manager.dart';
 import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/data/latest.dart' as tz_data;
@@ -25,13 +22,6 @@ import 'package:workmanager/workmanager.dart';
 
 const String githubBase =
     'https://github.com/sirdavid666/dave-ai/releases/download/v0.1.0/';
-
-/*
- * Get your free AccessKey from https://console.picovoice.ai
- * Paste it below, between the quotes.
- */
-const String porcupineAccessKey =
-    'PASTE_YOUR_PICOVOICE_ACCESSKEY_HERE';
 
 const String morningTask = 'morningBriefing';
 const String nightTask = 'nightBriefing';
@@ -137,10 +127,6 @@ class DaveService {
   final FlutterTts tts = FlutterTts();
 
   final Battery battery = Battery();
-
-  PorcupineManager? _porcupineManager;
-
-  bool _wakeWordActive = false;
 
   final FlutterLocalNotificationsPlugin notifications =
       FlutterLocalNotificationsPlugin();
@@ -667,8 +653,6 @@ class DaveService {
       await speak(
         'Brain online Boss. DAVE is ready.',
       );
-
-      await startWakeWordListening();
     } catch (e, stack) {
       _llmReady = false;
       _whisperReady = false;
@@ -693,72 +677,6 @@ class DaveService {
     await _initializeModels();
   }
 
-  Future<void> startWakeWordListening() async {
-    if (_wakeWordActive) {
-      return;
-    }
-
-    if (porcupineAccessKey ==
-        'PASTE_YOUR_PICOVOICE_ACCESSKEY_HERE') {
-      debugPrint(
-        'WAKE WORD: No Picovoice AccessKey set yet — skipping.',
-      );
-      return;
-    }
-
-    try {
-      _porcupineManager =
-          await PorcupineManager.fromBuiltInKeywords(
-        porcupineAccessKey,
-        [BuiltInKeyword.JARVIS],
-        (keywordIndex) async {
-          await _onWakeWordDetected();
-        },
-        errorCallback: (PorcupineException error) {
-          debugPrint(
-            'WAKE WORD ERROR: ${error.message}',
-          );
-        },
-      );
-
-      await _porcupineManager?.start();
-
-      _wakeWordActive = true;
-    } catch (e, stack) {
-      debugPrint('WAKE WORD INIT ERROR: $e');
-      debugPrint('$stack');
-    }
-  }
-
-  Future<void> stopWakeWordListening() async {
-    if (!_wakeWordActive) {
-      return;
-    }
-
-    try {
-      await _porcupineManager?.stop();
-    } catch (_) {}
-
-    _wakeWordActive = false;
-  }
-
-  Future<void> _onWakeWordDetected() async {
-    if (_isListening || _isSpeaking) {
-      return;
-    }
-
-    try {
-      await _porcupineManager?.stop();
-    } catch (_) {}
-
-    await startListening();
-
-    try {
-      if (_wakeWordActive) {
-        await _porcupineManager?.start();
-      }
-    } catch (_) {}
-  }
 
   Future<void> startListening() async {
     if (_isListening) {
@@ -1603,11 +1521,6 @@ $cleanMessage<|im_end|>
 
   Future<void> dispose() async {
     await _generationSubscription?.cancel();
-
-    try {
-      await _porcupineManager?.stop();
-      await _porcupineManager?.delete();
-    } catch (_) {}
 
     try {
       await _whisper.releaseModel();
