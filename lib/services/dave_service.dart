@@ -162,6 +162,28 @@ class DaveService {
 
   final Random _random = Random();
 
+  final Map<String, String> appPackages = {
+    'whatsapp': 'com.whatsapp',
+    'facebook': 'com.facebook.katana',
+    'instagram': 'com.instagram.android',
+    'tiktok': 'com.zhiliaoapp.musically',
+    'snapchat': 'com.snapchat.android',
+    'twitter': 'com.twitter.android',
+    'x': 'com.twitter.android',
+    'youtube': 'com.google.android.youtube',
+    'gmail': 'com.google.android.gm',
+    'chrome': 'com.android.chrome',
+    'settings': 'com.android.settings',
+    'camera': 'com.android.camera',
+    'gallery': 'com.android.gallery3d',
+    'phone': 'com.android.dialer',
+    'contacts': 'com.android.contacts',
+    'jumia': 'com.jumia.android',
+    'mx player': 'com.mxtech.videoplayer.ad',
+    'blood strike': 'com.netease.hyperfront',
+    'daveflow': 'com.dave.daveflow',
+  };
+
   final Map<String, String> familyContacts = {
     'dad': '08056710546',
     'father': '08056710546',
@@ -881,6 +903,118 @@ class DaveService {
     }
   }
 
+  /*
+   * Get your free API key from https://aistudio.google.com
+   * (sign in with any Google account, no card needed).
+   * Paste it below, between the quotes.
+   */
+  static const String _geminiApiKey =
+      String.fromEnvironment(
+    'GEMINI_API_KEY',
+    defaultValue: 'PASTE_YOUR_GEMINI_API_KEY_HERE',
+  );
+
+  Future<String?> _tryOnlineChat(
+    String cleanMessage,
+  ) async {
+    if (_geminiApiKey ==
+        'PASTE_YOUR_GEMINI_API_KEY_HERE') {
+      return null;
+    }
+
+    try {
+      final fullHistory =
+          getConversationHistory();
+
+      final recentHistory =
+          fullHistory.length > 6
+              ? fullHistory.sublist(
+                  fullHistory.length - 6,
+                )
+              : fullHistory;
+
+      final contents = <Map<String, dynamic>>[];
+
+      for (final entry in recentHistory) {
+        final u =
+            (entry['user'] ?? '')
+                .toString();
+
+        final d =
+            (entry['dave'] ?? '')
+                .toString();
+
+        if (u.isNotEmpty) {
+          contents.add({
+            'role': 'user',
+            'parts': [
+              {'text': u},
+            ],
+          });
+        }
+
+        if (d.isNotEmpty) {
+          contents.add({
+            'role': 'model',
+            'parts': [
+              {'text': d},
+            ],
+          });
+        }
+      }
+
+      contents.add({
+        'role': 'user',
+        'parts': [
+          {'text': cleanMessage},
+        ],
+      });
+
+      final response = await _dio.post(
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+        queryParameters: {
+          'key': _geminiApiKey,
+        },
+        data: {
+          'system_instruction': {
+            'parts': [
+              {
+                'text':
+                    'You are DAVE AI, a private personal assistant belonging to David, a Nigerian student preparing to study Biomedical Engineering at FUNATO. Personality: friendly, intelligent, helpful, funny when appropriate, concise. Call David "Boss" naturally. Reply only as DAVE.',
+              },
+            ],
+          },
+          'contents': contents,
+        },
+        options: Options(
+          sendTimeout: const Duration(
+            seconds: 10,
+          ),
+          receiveTimeout: const Duration(
+            seconds: 15,
+          ),
+        ),
+      );
+
+      final text = response
+          .data['candidates'][0]['content']['parts'][0]
+              ['text']
+          .toString()
+          .trim();
+
+      if (text.isEmpty) {
+        return null;
+      }
+
+      return text;
+    } catch (e, stack) {
+      debugPrint('ONLINE CHAT ERROR: $e');
+      debugPrint('$stack');
+
+      return null;
+    }
+  }
+
   Future<String> chat(
     String message,
   ) async {
@@ -908,6 +1042,23 @@ class DaveService {
       return actionResult;
     }
 
+    final onlineReply =
+        await _tryOnlineChat(cleanMessage);
+
+    if (onlineReply != null) {
+      response.value =
+          onlineReply;
+
+      _saveConversation(
+        cleanMessage,
+        onlineReply,
+      );
+
+      await speak(onlineReply);
+
+      return onlineReply;
+    }
+
     if (!_llmReady) {
       final fallback =
           getResponse(cleanMessage);
@@ -931,9 +1082,9 @@ class DaveService {
           getConversationHistory();
 
       final recentHistory =
-          fullHistory.length > 3
+          fullHistory.length > 2
               ? fullHistory.sublist(
-                  fullHistory.length - 3,
+                  fullHistory.length - 2,
                 )
               : fullHistory;
 
@@ -1064,10 +1215,23 @@ $cleanMessage<|im_end|>
         );
       }
 
-      _saveConversation(
-        cleanMessage,
-        result,
-      );
+      final wordCount =
+          result
+              .split(
+                RegExp(r'\s+'),
+              )
+              .length;
+
+      final looksBroken =
+          wordCount < 4 ||
+              !result.contains(' ');
+
+      if (!looksBroken) {
+        _saveConversation(
+          cleanMessage,
+          result,
+        );
+      }
 
       await speak(result);
 
@@ -1096,11 +1260,78 @@ $cleanMessage<|im_end|>
     }
   }
 
+  Future<bool> _setRealAlarm(
+    int hour,
+    int minute,
+    String label,
+  ) async {
+    try {
+      final intent = AndroidIntent(
+        action:
+            'android.intent.action.SET_ALARM',
+        arguments: {
+          'android.intent.extra.alarm.HOUR':
+              hour,
+          'android.intent.extra.alarm.MINUTES':
+              minute,
+          'android.intent.extra.alarm.MESSAGE':
+              label,
+          'android.intent.extra.alarm.SKIP_UI':
+              true,
+        },
+      );
+
+      await intent.launch();
+
+      return true;
+    } catch (e, stack) {
+      debugPrint('ALARM ERROR: $e');
+      debugPrint('$stack');
+
+      return false;
+    }
+  }
+
   Future<String?> _handleActions(
     String text,
   ) async {
     final lower =
         text.toLowerCase();
+
+    final openMatch = RegExp(
+      r'open (.+)',
+    ).firstMatch(lower);
+
+    if (openMatch != null) {
+      final spokenApp =
+          openMatch.group(1)!.trim();
+
+      final packageName =
+          appPackages[spokenApp];
+
+      if (packageName != null) {
+        try {
+          final intent = AndroidIntent(
+            action:
+                'android.intent.action.MAIN',
+            package: packageName,
+            category:
+                'android.intent.category.LAUNCHER',
+          );
+
+          await intent.launch();
+
+          return 'Opening $spokenApp Boss.';
+        } catch (e, stack) {
+          debugPrint('OPEN APP ERROR: $e');
+          debugPrint('$stack');
+
+          return 'I could not open $spokenApp, Boss. It may not be installed.';
+        }
+      }
+
+      return 'I do not know how to open $spokenApp yet, Boss.';
+    }
 
     final alarmMatch = RegExp(
       r'set (?:an? )?alarm (?:for|at)?\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?',
@@ -1133,43 +1364,30 @@ $cleanMessage<|im_end|>
       }
 
       if (hour <= 23 && minute <= 59) {
-        try {
-          final intent = AndroidIntent(
-            action:
-                'android.intent.action.SET_ALARM',
-            arguments: {
-              'android.intent.extra.alarm.HOUR':
-                  hour,
-              'android.intent.extra.alarm.MINUTES':
-                  minute,
-              'android.intent.extra.alarm.MESSAGE':
-                  'DAVE Alarm',
-              'android.intent.extra.alarm.SKIP_UI':
-                  true,
-            },
-          );
+        final displayHour =
+            hour.toString().padLeft(
+              2,
+              '0',
+            );
 
-          await intent.launch();
+        final displayMinute =
+            minute.toString().padLeft(
+              2,
+              '0',
+            );
 
-          final displayHour =
-              hour.toString().padLeft(
-                2,
-                '0',
-              );
+        final success =
+            await _setRealAlarm(
+          hour,
+          minute,
+          'DAVE Alarm',
+        );
 
-          final displayMinute =
-              minute.toString().padLeft(
-                2,
-                '0',
-              );
-
+        if (success) {
           return 'Alarm set for $displayHour:$displayMinute Boss.';
-        } catch (e, stack) {
-          debugPrint('ALARM ERROR: $e');
-          debugPrint('$stack');
-
-          return 'I could not set the alarm, Boss.';
         }
+
+        return 'I could not set the alarm, Boss.';
       }
     }
 
@@ -1197,6 +1415,15 @@ $cleanMessage<|im_end|>
       final duration = isHours
           ? Duration(hours: amount)
           : Duration(minutes: amount);
+
+      final target =
+          DateTime.now().add(duration);
+
+      await _setRealAlarm(
+        target.hour,
+        target.minute,
+        task,
+      );
 
       return await addTask(
         task,
@@ -1241,6 +1468,12 @@ $cleanMessage<|im_end|>
           minute <= 59) {
         final target =
             _durationUntil(hour, minute);
+
+        await _setRealAlarm(
+          hour,
+          minute,
+          task,
+        );
 
         return await addTask(
           task,
@@ -1347,14 +1580,23 @@ $cleanMessage<|im_end|>
           return 'I could not find $name in your contacts, Boss.';
         }
 
-        final message =
-            text.contains(':')
-                ? text
-                    .split(':')
-                    .sublist(1)
-                    .join(':')
-                    .trim()
-                : 'Hi';
+        String message = 'Hi';
+
+        final tellPattern = RegExp(
+          r'(?:tell (?:him|her|them)|saying|say)\s+(.+)',
+        ).firstMatch(text);
+
+        if (tellPattern != null) {
+          message =
+              tellPattern.group(1)!.trim();
+        } else if (text.contains(':')) {
+          message =
+              text
+                  .split(':')
+                  .sublist(1)
+                  .join(':')
+                  .trim();
+        }
 
         final url =
             Uri.parse(
