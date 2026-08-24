@@ -40,7 +40,8 @@ workflows:
         script: |
           flutter build apk \
             --release \
-            --no-shrink
+            --no-shrink \
+            --dart-define=GEMINI_API_KEY=$GEMINI_API_KEY
 
     artifacts:
       - build/app/outputs/flutter-apk/app-release.apk
