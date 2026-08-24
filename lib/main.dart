@@ -6,6 +6,8 @@ import 'package:permission_handler/permission_handler.dart';
 import 'pages/chat_page.dart';
 import 'pages/voice_page.dart';
 import 'services/dave_service.dart';
+import 'widgets/dave_ring.dart';
+import 'widgets/starfield_background.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,10 +40,19 @@ class DaveAIApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: Brightness.dark,
-        scaffoldBackgroundColor: const Color(0xFF070A12),
+        scaffoldBackgroundColor: const Color(0xFF0B1026),
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF4A90E2),
+          seedColor: const Color(0xFF00BFFF),
           brightness: Brightness.dark,
+          primary: const Color(0xFF00BFFF),
+          secondary: const Color(0xFF4A00E0),
+          tertiary: const Color(0xFFFFD700),
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFF0B1026)
+              .withOpacity(0.92),
+          indicatorColor: const Color(0xFF4A00E0)
+              .withOpacity(0.5),
         ),
         useMaterial3: true,
       ),
@@ -163,69 +174,72 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFF05070D),
-              Color(0xFF101A32),
-              Color(0xFF05070D),
-            ],
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: StarfieldBackground(),
           ),
-        ),
-        child: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.smart_toy,
-                size: 100,
-                color: Color(0xFF4A90E2),
-              ),
-
-              const SizedBox(
-                height: 24,
-              ),
-
-              const Text(
-                'DAVE AI',
-                style: TextStyle(
-                  fontSize: 42,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 3,
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ShaderMask(
+                  shaderCallback: (bounds) =>
+                      const LinearGradient(
+                    colors: [
+                      Color(0xFF00BFFF),
+                      Color(0xFFFFFFFF),
+                    ],
+                  ).createShader(bounds),
+                  child: const Text(
+                    'DAVE.AI',
+                    style: TextStyle(
+                      fontSize: 40,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 6,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
-              ),
 
-              const SizedBox(
-                height: 12,
-              ),
-
-              Text(
-                startupStatus,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 15,
+                const SizedBox(
+                  height: 6,
                 ),
-              ),
 
-              const SizedBox(
-                height: 25,
-              ),
-
-              const SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2.5,
-                  color: Color(0xFF4A90E2),
+                Text(
+                  'YOUR PERSONAL AI ASSISTANT',
+                  style: TextStyle(
+                    fontSize: 11,
+                    letterSpacing: 3,
+                    color: Colors.white.withOpacity(0.6),
+                  ),
                 ),
-              ),
-            ],
+
+                const SizedBox(
+                  height: 50,
+                ),
+
+                const DaveRing(
+                  size: 210,
+                ),
+
+                const SizedBox(
+                  height: 40,
+                ),
+
+                Text(
+                  startupStatus.toUpperCase(),
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.75),
+                    fontSize: 13,
+                    letterSpacing: 2,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }
@@ -254,7 +268,16 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: pages[currentIndex],
+      body: Stack(
+        children: [
+          const Positioned.fill(
+            child: StarfieldBackground(
+              starCount: 60,
+            ),
+          ),
+          pages[currentIndex],
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: currentIndex,
         onDestinationSelected: (index) {
