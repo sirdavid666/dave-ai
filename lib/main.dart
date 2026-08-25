@@ -768,6 +768,46 @@ class SettingsPage extends StatelessWidget {
                 color: Colors.white70,
               ),
             ),
+
+            const SizedBox(
+              height: 30,
+            ),
+
+            const Text(
+              'Online AI Status',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
+            ValueListenableBuilder<String?>(
+              valueListenable:
+                  DaveService.instance.lastOnlineError,
+              builder: (context, error, _) {
+                if (error == null) {
+                  return const Text(
+                    'No errors yet, or online mode has not been used.',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 13,
+                    ),
+                  );
+                }
+
+                return Text(
+                  'Last online AI error:\n$error',
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 13,
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
