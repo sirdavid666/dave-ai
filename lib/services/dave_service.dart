@@ -974,7 +974,7 @@ class DaveService {
       });
 
       final response = await _dio.post(
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
+        'https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent',
         data: {
           'system_instruction': {
             'parts': [
@@ -1423,9 +1423,18 @@ $cleanMessage<|im_end|>
           unit.startsWith('hour') ||
               unit.startsWith('hr');
 
-      final duration = isHours
+      final rawDuration = isHours
           ? Duration(hours: amount)
           : Duration(minutes: amount);
+
+      final duration =
+          rawDuration < const Duration(
+                minutes: 2,
+              )
+              ? const Duration(
+                  minutes: 2,
+                )
+              : rawDuration;
 
       final target =
           DateTime.now().add(duration);
@@ -1460,9 +1469,18 @@ $cleanMessage<|im_end|>
           unit.startsWith('hour') ||
               unit.startsWith('hr');
 
-      final duration = isHours
+      final rawDuration = isHours
           ? Duration(hours: amount)
           : Duration(minutes: amount);
+
+      final duration =
+          rawDuration < const Duration(
+                minutes: 2,
+              )
+              ? const Duration(
+                  minutes: 2,
+                )
+              : rawDuration;
 
       const task = 'your reminder';
 
