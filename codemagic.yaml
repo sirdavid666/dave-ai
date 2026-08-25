@@ -19,6 +19,28 @@ workflows:
 
     scripts:
 
+      - name: Restore or generate permanent debug keystore
+        script: |
+          mkdir -p $HOME/.android
+          if [ -n "$DAVE_DEBUG_KEYSTORE_BASE64" ]; then
+            echo "$DAVE_DEBUG_KEYSTORE_BASE64" | base64 -d > $HOME/.android/debug.keystore
+            echo "Restored saved permanent keystore."
+          else
+            keytool -genkeypair -v \
+              -keystore $HOME/.android/debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=DAVE AI,O=DAVE,C=NG"
+            echo "===== COPY THE LINE BELOW ====="
+            base64 -w 0 $HOME/.android/debug.keystore
+            echo ""
+            echo "===== END ====="
+          fi
+
       - name: Flutter doctor
         script: |
           flutter --version
