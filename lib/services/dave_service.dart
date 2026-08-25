@@ -303,6 +303,9 @@ class DaveService {
   final ValueNotifier<String> response =
       ValueNotifier<String>('');
 
+  final ValueNotifier<String?> lastOnlineError =
+      ValueNotifier<String?>(null);
+
   final ValueNotifier<List<Map<String, dynamic>>> tasks =
       ValueNotifier<List<Map<String, dynamic>>>([]);
 
@@ -972,9 +975,6 @@ class DaveService {
 
       final response = await _dio.post(
         'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent',
-        queryParameters: {
-          'key': _geminiApiKey,
-        },
         data: {
           'system_instruction': {
             'parts': [
@@ -987,6 +987,10 @@ class DaveService {
           'contents': contents,
         },
         options: Options(
+          headers: {
+            'x-goog-api-key': _geminiApiKey,
+            'Content-Type': 'application/json',
+          },
           sendTimeout: const Duration(
             seconds: 10,
           ),
@@ -1003,11 +1007,18 @@ class DaveService {
           .trim();
 
       if (text.isEmpty) {
+        lastOnlineError.value =
+            'Gemini returned an empty response.';
+
         return null;
       }
 
+      lastOnlineError.value = null;
+
       return text;
     } catch (e, stack) {
+      lastOnlineError.value =
+          e.toString();
       debugPrint('ONLINE CHAT ERROR: $e');
       debugPrint('$stack');
 
@@ -1415,6 +1426,45 @@ $cleanMessage<|im_end|>
       final duration = isHours
           ? Duration(hours: amount)
           : Duration(minutes: amount);
+
+      final target =
+          DateTime.now().add(duration);
+
+      await _setRealAlarm(
+        target.hour,
+        target.minute,
+        task,
+      );
+
+      return await addTask(
+        task,
+        remindIn: duration,
+      );
+    }
+
+    final tasklessReminderMatch = RegExp(
+      r'remind me(?: in| after)?(?: the next)? (\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)',
+    ).firstMatch(lower);
+
+    if (tasklessReminderMatch != null) {
+      final amount =
+          int.tryParse(
+            tasklessReminderMatch.group(1)!,
+          ) ??
+              0;
+
+      final unit =
+          tasklessReminderMatch.group(2)!;
+
+      final isHours =
+          unit.startsWith('hour') ||
+              unit.startsWith('hr');
+
+      final duration = isHours
+          ? Duration(hours: amount)
+          : Duration(minutes: amount);
+
+      const task = 'your reminder';
 
       final target =
           DateTime.now().add(duration);
@@ -1934,6 +1984,19 @@ $cleanMessage<|im_end|>
 
   Future<void> scheduleBriefings() async {
     try {
+      final alreadyScheduled =
+          _prefs.getBool(
+                'briefings_scheduled_v1',
+              ) ??
+              false;
+
+      if (alreadyScheduled) {
+        debugPrint(
+          'WORKMANAGER: Briefings already scheduled, skipping re-registration.',
+        );
+        return;
+      }
+
       await Workmanager().initialize(
         callbackDispatcher,
         isInDebugMode: false,
@@ -1955,6 +2018,11 @@ $cleanMessage<|im_end|>
             const Duration(hours: 24),
         initialDelay:
             _durationUntil(21, 0),
+      );
+
+      await _prefs.setBool(
+        'briefings_scheduled_v1',
+        true,
       );
     } catch (e) {
       debugPrint(
