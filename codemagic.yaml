@@ -13,15 +13,12 @@ workflows:
       vars:
         PACKAGE_NAME: "com.example.dave_ai"
 
-    cache:
-      cache_paths:
-        - $HOME/.android/debug.keystore
-
     scripts:
 
       - name: Restore or generate permanent debug keystore
         script: |
           mkdir -p $HOME/.android
+          rm -f $HOME/.android/debug.keystore
           if [ -n "$DAVE_DEBUG_KEYSTORE_BASE64" ]; then
             echo "$DAVE_DEBUG_KEYSTORE_BASE64" | base64 -d > $HOME/.android/debug.keystore
             echo "Restored saved permanent keystore."
@@ -36,7 +33,7 @@ workflows:
               -validity 10000 \
               -dname "CN=DAVE AI,O=DAVE,C=NG"
             echo "===== COPY THE LINE BELOW ====="
-            base64 -w 0 $HOME/.android/debug.keystore
+            base64 < $HOME/.android/debug.keystore | tr -d '\n'
             echo ""
             echo "===== END ====="
           fi
