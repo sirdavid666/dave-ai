@@ -187,12 +187,23 @@ class DaveService {
     'facebook': 'com.facebook.katana',
     'instagram': 'com.instagram.android',
     'tiktok': 'com.zhiliaoapp.musically',
+    'tiktok lite': 'com.zhiliaoapp.musically.go',
     'snapchat': 'com.snapchat.android',
     'twitter': 'com.twitter.android',
     'x': 'com.twitter.android',
+    'telegram': 'org.telegram.messenger',
+    'pinterest': 'com.pinterest',
+    'spotify': 'com.spotify.music',
     'youtube': 'com.google.android.youtube',
+    'yt music': 'com.google.android.apps.youtube.music',
     'gmail': 'com.google.android.gm',
     'chrome': 'com.android.chrome',
+    'firefox': 'org.mozilla.firefox',
+    'uc browser': 'com.UCMobile.intl',
+    'google': 'com.google.android.googlequicksearchbox',
+    'drive': 'com.google.android.apps.docs',
+    'maps': 'com.google.android.apps.maps',
+    'meet': 'com.google.android.apps.meetings',
     'settings': 'com.android.settings',
     'camera': 'com.android.camera',
     'gallery': 'com.android.gallery3d',
@@ -202,6 +213,13 @@ class DaveService {
     'mx player': 'com.mxtech.videoplayer.ad',
     'blood strike': 'com.netease.hyperfront',
     'daveflow': 'com.dave.daveflow',
+    'chatgpt': 'com.openai.chatgpt',
+    'claude': 'com.anthropic.claude',
+    'bing': 'com.microsoft.bing',
+    'xender': 'cn.xender',
+    'zarchiver': 'ru.zdevs.zarchiver',
+    'audiomack': 'com.audiomack',
+    'wps office': 'cn.wps.moffice_eng',
   };
 
   final Map<String, String> familyContacts = {
@@ -1333,7 +1351,13 @@ $cleanMessage<|im_end|>
       r'open (.+)',
     ).firstMatch(lower);
 
-    if (openMatch != null) {
+    final isWhatsAppMessageIntent =
+        lower.contains('whatsapp') &&
+            (lower.contains('message') ||
+                lower.contains('text'));
+
+    if (openMatch != null &&
+        !isWhatsAppMessageIntent) {
       final spokenApp =
           openMatch.group(1)!.trim();
 
@@ -1346,8 +1370,6 @@ $cleanMessage<|im_end|>
             action:
                 'android.intent.action.MAIN',
             package: packageName,
-            category:
-                'android.intent.category.LAUNCHER',
           );
 
           await intent.launch();
@@ -1635,28 +1657,57 @@ $cleanMessage<|im_end|>
       return 'I could not open the phone dialer.';
     }
 
-    if (lower.contains('whatsapp') &&
-        lower.contains('message')) {
+    if (isWhatsAppMessageIntent) {
       try {
-        String name =
-            lower
-                .split('message')
-                .last;
+        final afterTrigger = RegExp(
+          r'(?:message|text)\s+(.+)',
+        ).firstMatch(lower);
 
-        if (name.contains('on whatsapp')) {
-          name =
-              name
-                  .split('on whatsapp')
-                  .first;
+        if (afterTrigger == null) {
+          return 'I could not understand who to message, Boss.';
         }
 
-        name =
-            name
-                .replaceAll(
-                  'whatsapp',
-                  '',
-                )
-                .trim();
+        var remainder =
+            afterTrigger.group(1)!.trim();
+
+        String name;
+        String message;
+
+        if (remainder.contains('on whatsapp')) {
+          final parts =
+              remainder.split('on whatsapp');
+
+          name = parts.first.trim();
+
+          final tellPattern = RegExp(
+            r'(?:tell (?:him|her|them)|saying|say)\s+(.+)',
+          ).firstMatch(text);
+
+          message = tellPattern != null
+              ? tellPattern.group(1)!.trim()
+              : (parts.length > 1
+                  ? parts
+                      .sublist(1)
+                      .join('on whatsapp')
+                      .trim()
+                  : 'Hi');
+        } else {
+          remainder =
+              remainder
+                  .replaceAll('whatsapp', '')
+                  .trim();
+
+          final words =
+              remainder.split(' ');
+
+          name = words.isNotEmpty
+              ? words.first
+              : '';
+
+          message = words.length > 1
+              ? words.sublist(1).join(' ')
+              : 'Hi';
+        }
 
         final number =
             await resolveContactNumber(
@@ -1666,24 +1717,6 @@ $cleanMessage<|im_end|>
 
         if (number.isEmpty) {
           return 'I could not find $name in your contacts, Boss.';
-        }
-
-        String message = 'Hi';
-
-        final tellPattern = RegExp(
-          r'(?:tell (?:him|her|them)|saying|say)\s+(.+)',
-        ).firstMatch(text);
-
-        if (tellPattern != null) {
-          message =
-              tellPattern.group(1)!.trim();
-        } else if (text.contains(':')) {
-          message =
-              text
-                  .split(':')
-                  .sublist(1)
-                  .join(':')
-                  .trim();
         }
 
         final url =
@@ -2041,34 +2074,43 @@ $cleanMessage<|im_end|>
     );
   }
 
-  Future<void> testBriefingNow({
+  Future<bool> testBriefingNow({
     required bool morning,
   }) async {
-    final text = morning
-        ? await buildMorningBriefing()
-        : await buildNightBriefing();
+    try {
+      final text = morning
+          ? await buildMorningBriefing()
+          : await buildNightBriefing();
 
-    await notifications.show(
-      morning ? 1 : 2,
-      morning
-          ? 'DAVE AI Morning'
-          : 'DAVE AI Night',
-      text,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          morning
-              ? 'morning_channel'
-              : 'night_channel',
-          morning
-              ? 'Morning Briefing'
-              : 'Night Briefing',
-          importance: Importance.max,
-          priority: Priority.high,
+      await notifications.show(
+        morning ? 1 : 2,
+        morning
+            ? 'DAVE AI Morning'
+            : 'DAVE AI Night',
+        text,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            morning
+                ? 'morning_channel'
+                : 'night_channel',
+            morning
+                ? 'Morning Briefing'
+                : 'Night Briefing',
+            importance: Importance.max,
+            priority: Priority.high,
+          ),
         ),
-      ),
-    );
+      );
 
-    await speak(text);
+      await speak(text);
+
+      return true;
+    } catch (e, stack) {
+      debugPrint('TEST BRIEFING ERROR: $e');
+      debugPrint('$stack');
+
+      return false;
+    }
   }
 
   Duration _durationUntil(
