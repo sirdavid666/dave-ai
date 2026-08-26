@@ -71,6 +71,16 @@ void callbackDispatcher() {
       await dave.initializeBackgroundNotifications();
 
       if (task == morningTask) {
+        final enabled =
+            dave._prefs.getBool(
+                  'morning_briefing_enabled',
+                ) ??
+                true;
+
+        if (!enabled) {
+          return true;
+        }
+
         final text = await dave.buildMorningBriefing();
 
         await dave.notifications.show(
@@ -91,6 +101,16 @@ void callbackDispatcher() {
       }
 
       if (task == nightTask) {
+        final enabled =
+            dave._prefs.getBool(
+                  'night_briefing_enabled',
+                ) ??
+                true;
+
+        if (!enabled) {
+          return true;
+        }
+
         final text = await dave.buildNightBriefing();
 
         await dave.notifications.show(
@@ -1403,7 +1423,7 @@ $cleanMessage<|im_end|>
     }
 
     final reminderMatch = RegExp(
-      r'remind me to (.+?) in (\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)',
+      r'(?:remind me to|set (?:a |an )?reminder to) (.+?) in (\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)',
     ).firstMatch(lower);
 
     if (reminderMatch != null) {
@@ -1452,7 +1472,7 @@ $cleanMessage<|im_end|>
     }
 
     final tasklessReminderMatch = RegExp(
-      r'remind me(?: in| after)?(?: the next)? (\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)',
+      r'(?:remind me|set (?:a |an )?reminder)(?: in| after)?(?: the next)? (\d+)\s*(minute|minutes|min|mins|hour|hours|hr|hrs)',
     ).firstMatch(lower);
 
     if (tasklessReminderMatch != null) {
@@ -1976,6 +1996,79 @@ $cleanMessage<|im_end|>
     return 'Good night Master $masterName. '
         'Battery is at $batt percent. '
         'Rest well, Boss.';
+  }
+
+  bool get morningBriefingEnabled =>
+      _prefs.getBool(
+        'morning_briefing_enabled',
+      ) ??
+      true;
+
+  bool get nightBriefingEnabled =>
+      _prefs.getBool(
+        'night_briefing_enabled',
+      ) ??
+      true;
+
+  Future<void> setMorningBriefingEnabled(
+    bool value,
+  ) async {
+    await _prefs.setBool(
+      'morning_briefing_enabled',
+      value,
+    );
+  }
+
+  Future<void> setNightBriefingEnabled(
+    bool value,
+  ) async {
+    await _prefs.setBool(
+      'night_briefing_enabled',
+      value,
+    );
+  }
+
+  Future<bool> testAlarmNow() async {
+    final target =
+        DateTime.now().add(
+      const Duration(minutes: 2),
+    );
+
+    return _setRealAlarm(
+      target.hour,
+      target.minute,
+      'DAVE Test Alarm',
+    );
+  }
+
+  Future<void> testBriefingNow({
+    required bool morning,
+  }) async {
+    final text = morning
+        ? await buildMorningBriefing()
+        : await buildNightBriefing();
+
+    await notifications.show(
+      morning ? 1 : 2,
+      morning
+          ? 'DAVE AI Morning'
+          : 'DAVE AI Night',
+      text,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          morning
+              ? 'morning_channel'
+              : 'night_channel',
+          morning
+              ? 'Morning Briefing'
+              : 'Night Briefing',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
+      ),
+    );
+
+    await speak(text);
   }
 
   Duration _durationUntil(
