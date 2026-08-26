@@ -712,7 +712,7 @@ class SettingsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -812,7 +812,8 @@ class SettingsPage extends StatelessWidget {
                     ),
                     OutlinedButton(
                       onPressed: () async {
-                        await dave.testBriefingNow(
+                        final success =
+                            await dave.testBriefingNow(
                           morning: true,
                         );
 
@@ -820,9 +821,11 @@ class SettingsPage extends StatelessWidget {
                           ScaffoldMessenger.of(
                             context,
                           ).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Morning briefing sent — check notification and audio.',
+                                success
+                                    ? 'Morning briefing sent — check notification and audio.'
+                                    : 'Morning briefing failed — see error below if any.',
                               ),
                             ),
                           );
@@ -855,7 +858,8 @@ class SettingsPage extends StatelessWidget {
                     ),
                     OutlinedButton(
                       onPressed: () async {
-                        await dave.testBriefingNow(
+                        final success =
+                            await dave.testBriefingNow(
                           morning: false,
                         );
 
@@ -863,9 +867,11 @@ class SettingsPage extends StatelessWidget {
                           ScaffoldMessenger.of(
                             context,
                           ).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text(
-                                'Night briefing sent — check notification and audio.',
+                                success
+                                    ? 'Night briefing sent — check notification and audio.'
+                                    : 'Night briefing failed — see error below if any.',
                               ),
                             ),
                           );
