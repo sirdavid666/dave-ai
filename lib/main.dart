@@ -774,6 +774,146 @@ class SettingsPage extends StatelessWidget {
             ),
 
             const Text(
+              'Briefings',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+
+            const SizedBox(
+              height: 10,
+            ),
+
+            StatefulBuilder(
+              builder: (context, setLocalState) {
+                final dave =
+                    DaveService.instance;
+
+                return Column(
+                  crossAxisAlignment:
+                      CrossAxisAlignment.start,
+                  children: [
+                    SwitchListTile(
+                      contentPadding:
+                          EdgeInsets.zero,
+                      title: const Text(
+                        'Morning Briefing (7:00 AM)',
+                      ),
+                      value: dave
+                          .morningBriefingEnabled,
+                      onChanged: (value) async {
+                        await dave
+                            .setMorningBriefingEnabled(
+                          value,
+                        );
+                        setLocalState(() {});
+                      },
+                    ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        await dave.testBriefingNow(
+                          morning: true,
+                        );
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Morning briefing sent — check notification and audio.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text(
+                        'Test Morning Briefing Now',
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 20,
+                    ),
+
+                    SwitchListTile(
+                      contentPadding:
+                          EdgeInsets.zero,
+                      title: const Text(
+                        'Night Briefing (9:00 PM)',
+                      ),
+                      value: dave
+                          .nightBriefingEnabled,
+                      onChanged: (value) async {
+                        await dave
+                            .setNightBriefingEnabled(
+                          value,
+                        );
+                        setLocalState(() {});
+                      },
+                    ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        await dave.testBriefingNow(
+                          morning: false,
+                        );
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Night briefing sent — check notification and audio.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text(
+                        'Test Night Briefing Now',
+                      ),
+                    ),
+
+                    const SizedBox(
+                      height: 20,
+                    ),
+
+                    OutlinedButton(
+                      onPressed: () async {
+                        final success =
+                            await dave
+                                .testAlarmNow();
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(
+                            context,
+                          ).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                success
+                                    ? 'Test alarm set for 2 minutes from now — check your Clock app.'
+                                    : 'Test alarm failed to launch.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text(
+                        'Test Real Alarm (2 min)',
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+
+            const SizedBox(
+              height: 30,
+            ),
+
+            const Text(
               'Online AI Status',
               style: TextStyle(
                 fontSize: 18,
