@@ -122,6 +122,16 @@ class _SplashScreenState extends State<SplashScreen> {
       );
     }
 
+    try {
+      await Permission
+          .ignoreBatteryOptimizations
+          .request();
+    } catch (e) {
+      debugPrint(
+        'BATTERY OPTIMIZATION PERMISSION ERROR: $e',
+      );
+    }
+
     if (!mounted) {
       return;
     }
