@@ -344,6 +344,12 @@ class DaveService {
   final ValueNotifier<String?> lastOnlineError =
       ValueNotifier<String?>(null);
 
+  final ValueNotifier<String?> lastBriefingError =
+      ValueNotifier<String?>(null);
+
+  final ValueNotifier<String?> lastAlarmError =
+      ValueNotifier<String?>(null);
+
   final ValueNotifier<List<Map<String, dynamic>>> tasks =
       ValueNotifier<List<Map<String, dynamic>>>([]);
 
@@ -1332,8 +1338,12 @@ $cleanMessage<|im_end|>
 
       await intent.launch();
 
+      lastAlarmError.value = null;
+
       return true;
     } catch (e, stack) {
+      lastAlarmError.value = e.toString();
+
       debugPrint('ALARM ERROR: $e');
       debugPrint('$stack');
 
@@ -2104,8 +2114,12 @@ $cleanMessage<|im_end|>
 
       await speak(text);
 
+      lastBriefingError.value = null;
+
       return true;
     } catch (e, stack) {
+      lastBriefingError.value = e.toString();
+
       debugPrint('TEST BRIEFING ERROR: $e');
       debugPrint('$stack');
 
