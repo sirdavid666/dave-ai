@@ -114,26 +114,6 @@ class _ChatPageState
 
     _scrollToBottom();
 
-    final ready =
-        dave.isReady;
-
-    if (!ready) {
-      setState(() {
-        messages.add(
-          _ChatMessage(
-            text:
-                'My brain is not ready yet, Boss. Check Settings.',
-            isUser: false,
-          ),
-        );
-        sending = false;
-      });
-
-      _scrollToBottom();
-
-      return;
-    }
-
     try {
       final reply =
           await dave.chat(text);
