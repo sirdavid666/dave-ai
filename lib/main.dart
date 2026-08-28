@@ -964,6 +964,62 @@ class SettingsPage extends StatelessWidget {
                 );
               },
             ),
+
+            const SizedBox(
+              height: 20,
+            ),
+
+            ValueListenableBuilder<String?>(
+              valueListenable:
+                  DaveService.instance.lastBriefingError,
+              builder: (context, error, _) {
+                if (error == null) {
+                  return const Text(
+                    'No briefing errors yet.',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 13,
+                    ),
+                  );
+                }
+
+                return Text(
+                  'Last briefing error:\n$error',
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 13,
+                  ),
+                );
+              },
+            ),
+
+            const SizedBox(
+              height: 20,
+            ),
+
+            ValueListenableBuilder<String?>(
+              valueListenable:
+                  DaveService.instance.lastAlarmError,
+              builder: (context, error, _) {
+                if (error == null) {
+                  return const Text(
+                    'No alarm errors yet.',
+                    style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 13,
+                    ),
+                  );
+                }
+
+                return Text(
+                  'Last alarm error:\n$error',
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 13,
+                  ),
+                );
+              },
+            ),
           ],
         ),
       ),
