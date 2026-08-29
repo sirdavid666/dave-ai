@@ -384,7 +384,7 @@ class DaveService {
 
   Future<void> initializeBackgroundNotifications() async {
     const androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('@drawable/ic_launcher');
 
     const settings = InitializationSettings(
       android: androidSettings,
